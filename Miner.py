@@ -2,6 +2,7 @@ import hashlib
 
 last_transaction_index = 0
 
+
 def sha256(message):
 	return hashlib.sha256(message.encode('ascii')).hexdigest()
 
