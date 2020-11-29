@@ -22,3 +22,34 @@ def mine(message, difficulty=1):
 if __name__ == '__main__':
 	mine("test message", 1)
 	print("done!")
+
+	block = Block()
+	for i in range(3):
+		temp_transaction = transactions[last_transaction_index]
+		# validate transaction
+		# if valid
+		block.verified_transactions.append (temp_transaction)
+		last_transaction_index += 1
+
+	block.previous_block_hash = last_block_hash
+	block.Nonce = mine (block, 2)
+	digest = hash (block)
+	UniCoins.append (block)
+	last_block_hash = digest
+
+	# Miner 2 adds a block
+	block = Block()
+
+	for i in range(3):
+		temp_transaction = transactions[last_transaction_index]
+		# validate transaction
+		# if valid
+		block.verified_transactions.append (temp_transaction)
+	last_transaction_index += 1
+	block.previous_block_hash = last_block_hash
+	block.Nonce = mine (block, 2)
+	digest = hash (block)
+	UniCoins.append (block)
+	last_block_hash = digest
+
+	dump_blockchain(UniCoins)
