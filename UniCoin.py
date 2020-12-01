@@ -1,96 +1,73 @@
-import requests
-import json 
+import os
 
-from flask import Flask, request
-from Blockchain import BlockChain, Transaction
-from Client import Client
+from Crypto.PublicKey.RSA import RsaKey
 
-app = Flask(__name__)
+from UniCoin import app, paths
+from UniCoin.Nodes import KeyFactory, Client, Miner
 
-blockchain = BlockChain()
-client = Client()
-print(client)
 
-@app.route('/new_transaction', methods=['POST'])
-def new_transaction():
-    json_data = request.get_json()
-    if not json_data:
-        return "Missing transaction parameters", 404
-    
-    required_fields = ['recipient', 'value']
-    for field in required_fields:
-        if not json_data.get(field):
-            return "Missing transaction parameters", 404
-    
-    blockchain.add_transaction(Transaction(
-        client,
-        json_data['recipient'],
-        json_data['value']
-    ))
-    
-    return "Transaction is awaiting to be processed."
+def menu_select_client_type(private_key):
+	print('-'*23, ' [UNICOIN - Select Client Type] ', '-'*23)
+	print('1. Client')
+	print('2. Miner')
+	print('0. Exit')
 
-@app.route('/chain', methods=['GET'])
-def get_chain():
-    return json.dumps({
-        'length': len(blockchain.chain),
-        'chain': list(map(lambda o: o.to_dict(), blockchain.chain))
-    })
+	while True:
+		inp = int(input('Selection: '))
+		if inp not in range(0, 3):
+			print('Incorrect input. Try again.')
+			continue
+		break
 
-@app.route('/mine', methods=['GET'])
-def mine():
-    result = blockchain.mine()
-    if not result:
-        return "No transactions available to mine"
-    
-    return f'Block {result.index} mined!'
+	if inp == 0:
+		exit(0)
+	elif inp == 1:
+		return Client(private_key)
+	else:
+		return Miner(private_key)
 
-@app.route('/pending_tx', methods=['GET'])
-def get_pending_transactions():
-    return json.dumps({
-        'length': len(blockchain.unconfirmed_transactions),
-        'transactions': list(map(lambda o: o.to_dict(), blockchain.unconfirmed_transactions))
-    })
 
-@app.route('/nodes/register', methods=['POST'])
-def register_nodes():
-    json_data = request.get_json()
-    if not json_data:
-        return "Missing node registration parameters", 404
+def menu_generate_key() -> RsaKey:
+	print('-'*23, ' [UNICOIN - Friendly name] ', '-'*23)
+	print('Select a friendly name for your key.')
+	print('Just try not to override any previous one and lose fortunes ^_^.')
+	inp = str(input('Friendly name (Keep empty for random): '))
+	key = KeyFactory.create_key()
+	KeyFactory.store_key(key, inp)
+	return key
 
-    node_address = json_data['node_address']
-    if not node_address:
-        return "Missing node registration parameters", 404
 
-    blockchain.nodes.add(node_address)      
-    return json.dumps({
-       'result': 'Everything seems a-okay!' 
-    }) 
+def menu_select_key() -> RsaKey:
+	try:
+		path = paths.PATH_WALLETS
+		addresses = [name.removesuffix('.der') for name in os.listdir(path) if os.path.isfile(os.path.join(path, name))]
+	except Exception:
+		addresses = []
 
-@app.route('/nodes/register_existing', methods=['POST'])
-def register_with_existing_node():
-    json_data = request.get_json()
-    if not json_data or not json_data['node_address']:
-        return "Missing node registration parameters", 400
+	print('-'*23, ' [UNICOIN - Select address] ', '-'*23)
+	print('1. Generate new address')
+	for idx, address in enumerate(addresses):
+		print(f'{idx+2}. {address}')
+	print('0. Exit')
 
-    node_address = json_data['node_address']
-    data = {'node_address': request.host_url}
-    headers = {'Content-Type': 'application/json'}
+	while True:
+		inp = int(input('Selection: '))
+		if inp not in range(0, len(addresses)+2):
+			print('Incorrect input. Try again.')
+			continue
+		break
 
-    response = requests.post(f'{node_address}/nodes/register',
-                             data=json.dumps(data), headers=headers)
-
-    if response.status_code == 200:
-        # update chain and the peers
-        # chain_dump = response.json()['chain']
-        # blockchain = create_chain_from_dump(chain_dump)
-        # peers.update(response.json()['peers'])
-        return 'Registration successful', 200
-    else:
-        # if something goes wrong, pass it on to the API response
-        return response.content, response.status_code
-
+	if inp == 0:
+		exit(0)
+	elif inp == 1:
+		return menu_generate_key()
+	else:
+		return KeyFactory.load_key(addresses[inp-2])
 
 
 if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+	key = menu_select_key()
+	client = menu_select_client_type(key)
+
+	print('Good to go... Starting web server...')
+	app.run()
