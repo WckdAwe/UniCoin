@@ -43,7 +43,7 @@
       <recent name="C:\Users\vasil\Desktop\UniCoin\app\web" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.UniCoin">
+  <component name="RunManager" selected="Python.Transactions">
     <configuration name="Blockchain (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="UniCoin" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -58,28 +58,6 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/UniCoin/Blockchain.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="Blockchain" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="UniCoin" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="C:\Users\vasil\Desktop\UniCoin\app\Blockchain.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -110,7 +88,29 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="Transaction" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="Transactions" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="UniCoin" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/UniCoin" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="C:\Users\vasil\Desktop\UniCoin\UniCoin\Transactions.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="UniCoin (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="UniCoin" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -123,7 +123,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Transaction.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/UniCoin.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -156,11 +156,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.Transactions" />
+        <item itemvalue="Python.UniCoin (1)" />
         <item itemvalue="Python.UniCoin" />
         <item itemvalue="Python.Blockchain (1)" />
         <item itemvalue="Python.Nodes" />
-        <item itemvalue="Python.Blockchain" />
-        <item itemvalue="Python.Transaction" />
       </list>
     </recent_temporary>
   </component>
@@ -182,7 +182,7 @@
       <workItem from="1606665076104" duration="12767000" />
       <workItem from="1606724527107" duration="1032000" />
       <workItem from="1606725575570" duration="30596000" />
-      <workItem from="1606822314319" duration="2440000" />
+      <workItem from="1606822314319" duration="15051000" />
     </task>
     <servers />
   </component>
@@ -190,30 +190,34 @@
     <option name="version" value="3" />
   </component>
   <component name="WindowStateProjectService">
-    <state x="414" y="175" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1606675011052">
+    <state x="414" y="175" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1606831691963">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state x="414" y="175" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.1920.1040@0.0.1920.1040" timestamp="1606675011052" />
+    <state x="414" y="175" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.1920.1040@0.0.1920.1040" timestamp="1606831691963" />
     <state x="632" y="322" key="#com.intellij.fileTypes.FileTypeChooser" timestamp="1606733360968">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
     <state x="632" y="322" key="#com.intellij.fileTypes.FileTypeChooser/0.0.1920.1040@0.0.1920.1040" timestamp="1606733360968" />
-    <state width="1877" height="348" key="GridCell.Tab.0.bottom" timestamp="1606774082104">
+    <state x="690" y="267" key="#com.intellij.refactoring.safeDelete.UnsafeUsagesDialog" timestamp="1606829301034">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state width="1877" height="348" key="GridCell.Tab.0.bottom/0.0.1920.1040@0.0.1920.1040" timestamp="1606774082104" />
-    <state width="1877" height="348" key="GridCell.Tab.0.center" timestamp="1606774082104">
+    <state x="690" y="267" key="#com.intellij.refactoring.safeDelete.UnsafeUsagesDialog/0.0.1920.1040@0.0.1920.1040" timestamp="1606829301034" />
+    <state width="1877" height="276" key="GridCell.Tab.0.bottom" timestamp="1606851504132">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state width="1877" height="348" key="GridCell.Tab.0.center/0.0.1920.1040@0.0.1920.1040" timestamp="1606774082104" />
-    <state width="1877" height="348" key="GridCell.Tab.0.left" timestamp="1606774082104">
+    <state width="1877" height="276" key="GridCell.Tab.0.bottom/0.0.1920.1040@0.0.1920.1040" timestamp="1606851504132" />
+    <state width="1877" height="276" key="GridCell.Tab.0.center" timestamp="1606851504132">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state width="1877" height="348" key="GridCell.Tab.0.left/0.0.1920.1040@0.0.1920.1040" timestamp="1606774082104" />
-    <state width="1877" height="348" key="GridCell.Tab.0.right" timestamp="1606774082104">
+    <state width="1877" height="276" key="GridCell.Tab.0.center/0.0.1920.1040@0.0.1920.1040" timestamp="1606851504132" />
+    <state width="1877" height="276" key="GridCell.Tab.0.left" timestamp="1606851504132">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state width="1877" height="348" key="GridCell.Tab.0.right/0.0.1920.1040@0.0.1920.1040" timestamp="1606774082104" />
+    <state width="1877" height="276" key="GridCell.Tab.0.left/0.0.1920.1040@0.0.1920.1040" timestamp="1606851504132" />
+    <state width="1877" height="276" key="GridCell.Tab.0.right" timestamp="1606851504132">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1877" height="276" key="GridCell.Tab.0.right/0.0.1920.1040@0.0.1920.1040" timestamp="1606851504132" />
     <state width="1877" height="348" key="GridCell.Tab.1.bottom" timestamp="1606774082105">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
@@ -244,13 +248,14 @@
     <state x="623" y="225" width="672" height="678" key="search.everywhere.popup/0.0.1920.1040@0.0.1920.1040" timestamp="1606743858143" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/UniCoin$app.coverage" NAME="app Coverage Results" MODIFIED="1606823298855" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/UniCoin$app.coverage" NAME="UniCoin Coverage Results" MODIFIED="1606831026520" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/UniCoin$Miner.coverage" NAME="Miner Coverage Results" MODIFIED="1606213860474" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/UniCoin$Transaction.coverage" NAME="Transaction Coverage Results" MODIFIED="1606560106295" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/UniCoin$Transaction.coverage" NAME="Transaction Coverage Results" MODIFIED="1606851504123" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/UniCoin" />
     <SUITE FILE_PATH="coverage/UniCoin$Block.coverage" NAME="Block Coverage Results" MODIFIED="1606212741251" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/UniCoin$Blockchain.coverage" NAME="Blockchain Coverage Results" MODIFIED="1606678897560" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/UniCoin$Client.coverage" NAME="Client Coverage Results" MODIFIED="1606559767876" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/UniCoin$Nodes.coverage" NAME="Nodes Coverage Results" MODIFIED="1606733923457" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/UniCoin" />
     <SUITE FILE_PATH="coverage/UniCoin$Blockchain__1_.coverage" NAME="Blockchain (1) Coverage Results" MODIFIED="1606752453744" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/UniCoin" />
+    <SUITE FILE_PATH="coverage/UniCoin$UniCoin__1_.coverage" NAME="UniCoin (1) Coverage Results" MODIFIED="1606849301295" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

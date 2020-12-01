@@ -9,17 +9,17 @@ from Crypto.Signature import pkcs1_15
 from Crypto.Signature.pkcs1_15 import PKCS115_SigScheme
 
 from UniCoin import paths
+from UniCoin.Blockchain import BlockChain
+from UniCoin.Transactions import TransactionManager
 
 
-class Client:
+class Node:
+	TYPE_CLIENT = 0,
+	TYPE_MINER = 1
+
 	def __init__(self, private_key: RsaKey):
 		self.private_key: RsaKey = private_key
 		self.public_key: RsaKey = self.private_key.publickey()
-		self.signer: PKCS115_SigScheme = pkcs1_15.new(self.private_key)
-		self.UTX = [] 	# List of unspent transactions
-
-	def create_transaction(self):
-		pass
 
 	@property
 	def identity(self) -> str:
@@ -29,12 +29,27 @@ class Client:
 		return self.identity
 
 
+class Client(Node):
+	def __init__(self, private_key: RsaKey):
+		super().__init__(private_key)
+		self.signer: PKCS115_SigScheme = pkcs1_15.new(self.private_key)
+		self.UTX = [] 	# List of unspent transactions
+
+	def create_transaction(self):
+		pass
+
+
 class Miner(Client):
 	def __init__(self, private_key: RsaKey):
 		super().__init__(private_key)
 
 	def mine(self):
-		pass
+		if not TransactionManager().verified_transactions:
+			return False
+
+		return BlockChain.construct_block(
+			verified_transactions=TransactionManager().verified_transactions,
+		)
 
 
 class Network:

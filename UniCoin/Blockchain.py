@@ -2,10 +2,10 @@ import json
 import collections
 import time
 
+import UniCoin.Transactions
+
 from typing import List
 from Crypto.Hash import SHA256
-
-from UniCoin.Transaction import Transaction
 from UniCoin.decorators import singleton
 
 
@@ -14,7 +14,7 @@ class Block:
 				 previous_block_hash: str = None, timestamp=None):
 		self.index: int = index
 		self.proof: int = proof
-		self.verified_transactions: List[Transaction] = verified_transactions
+		self.verified_transactions: List[] = verified_transactions
 		self.previous_block_hash: str = previous_block_hash
 		self.timestamp = time.time()  # timestamp if timestamp else time.time
 

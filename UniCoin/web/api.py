@@ -2,11 +2,13 @@ import json
 
 from flask import request
 
+import UniCoin
 from UniCoin import app
 from UniCoin.Blockchain import BlockChain
+from UniCoin.Nodes import Node, Client
 
 # --- BLOCKCHAIN ROUTES ---
-from UniCoin.Transaction import TransactionManager, Transaction
+from UniCoin.Transactions import TransactionManager
 
 
 @app.route('/api/blockchain/length', methods=['GET'])
@@ -62,6 +64,14 @@ def get_nodes():
 	return json.dumps({
 		'length': 0,
 		'nodes': []
+	})
+
+
+@app.route('/api/nodes/info')
+def get_node_information():
+	return json.dumps({
+		'node_type': Node.TYPE_CLIENT if type(UniCoin.my_node) is Client else Node.TYPE_MINER,
+		'public_key': str(UniCoin.my_node.identity)
 	})
 
 # @app.route('api/nodes/register', methods=['POST'])
