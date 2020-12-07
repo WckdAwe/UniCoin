@@ -8,9 +8,20 @@ from Crypto.PublicKey.RSA import RsaKey
 from Crypto.Signature import pkcs1_15
 from Crypto.Signature.pkcs1_15 import PKCS115_SigScheme
 
-from UniCoin import paths
-from UniCoin.Blockchain import BlockChain
-from UniCoin.Transactions import TransactionManager
+import UniCoin.helpers.paths as paths
+import UniCoin.Blockchain as Blockchain
+import UniCoin.Transactions as Transactions
+
+
+class NodeNetwork:
+	def __init__(self):
+		self._nodes = set()
+
+	def register_node(self, address: str):
+		self._nodes.add(address)
+
+	def blacklist_node(self, address: str):		# TODO: Is this possible for a blockchain network??
+		pass
 
 
 class Node:
@@ -18,6 +29,8 @@ class Node:
 	TYPE_MINER = 1
 
 	def __init__(self, private_key: RsaKey):
+		self.network: NodeNetwork = NodeNetwork()
+		self.blockchain = Blockchain.BlockChain()
 		self.private_key: RsaKey = private_key
 		self.public_key: RsaKey = self.private_key.publickey()
 
@@ -38,29 +51,74 @@ class Client(Node):
 	def create_transaction(self):
 		pass
 
+	# def add_transaction(self, transaction) -> bool:
+	# 	# if not isinstance(transaction, Transaction):
+	# 	# 	raise ValueError("Transaction is not a valid Transaction object!")
+	#
+	# 	if transaction.check_validity():
+	# 		self.transactions.append(transaction)  # TODO:
+	# 		return True
+	# 	print("ERROR -> INVALID TRANSACTION, ", transaction.check_validity())
+	#
+	# 	return False
+
 
 class Miner(Client):
 	def __init__(self, private_key: RsaKey):
 		super().__init__(private_key)
+		self.transactions = []
+		# Unconventional, but i guess it's fine just for the demonstration
+		# Miner shouldn't create Genesis block?
+		self.construct_genesis()
 
-	def mine(self):
-		if not TransactionManager().verified_transactions:
-			return False
-
-		return BlockChain.construct_block(
-			verified_transactions=TransactionManager().verified_transactions,
+	def construct_genesis(self):
+		self.construct_block(
+			proof=42,
+			previous_hash="Samira-mira-mira-e-e-Waka-Waka-e-e"
 		)
 
+	def construct_block(self, verified_transactions=[], proof=None, previous_hash=None) -> Blockchain.Block:
+		if proof is None or previous_hash is None:
+			last_block = self.blockchain.last_block
+			proof = Blockchain.proof_of_work(last_block.proof)
+			previous_hash = last_block.calculate_hash
 
-class Network:
-	def __init__(self):
-		self._nodes = set()
+		block = Blockchain.Block(
+			index=len(self.blockchain.chain),
+			proof=proof,
+			verified_transactions=verified_transactions,
+			previous_block_hash=previous_hash)
 
-	def register_node(self, address: str):
-		self._nodes.add(address)
+		# TODO: Calculate fees too!
+		# Coinbase Transaction
+		coinbase = Transactions.Transaction(
+			outputs=[Transactions.TransactionOutput(self.identity, block.reward + sum(list(map(lambda o: o.calculate_transaction_fee(self.blockchain.chain), verified_transactions))))]  # TODO: + fees
+		)
+		coinbase.sign_transaction(self)
+		verified_transactions.insert(0, coinbase)
 
-	def blacklist_node(self, address: str):		# TODO: Is this possible for a blockchain network??
-		pass
+		# TODO: Broadcast BLOCK!
+		self.blockchain.chain.append(block)
+		return block
+
+	def mine(self):
+		if not self.transactions:
+			return False
+
+		return self.construct_block(
+			verified_transactions=self.transactions,
+		)
+
+	def add_transaction(self, transaction) -> bool:
+		# if not isinstance(transaction, Transactions.Transaction):
+		# 	raise ValueError("Transaction is not a valid Transaction object!")
+
+		if transaction.check_validity(self.blockchain.chain):
+			self.transactions.append(transaction)  # TODO:
+			return True
+		print("ERROR -> INVALID TRANSACTION, ", transaction.check_validity(self.blockchain.chain))
+
+		return False
 
 
 class KeyFactory:
