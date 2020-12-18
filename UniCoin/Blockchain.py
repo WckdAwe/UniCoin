@@ -5,10 +5,15 @@ import time
 from typing import List
 from Crypto.Hash import SHA256
 
-import UniCoin.Transactions as Transactions
 
-
-def verify_proof(prev_proof, proof, difficulty=2) -> bool:
+def verify_proof(prev_proof, proof, difficulty) -> bool:
+	"""
+	Verifying if the Proof-of-Work is correct, based on a specific difficulty.
+	:param prev_proof: Proof-of-Work of previous block.
+	:param proof: Proof-of-Work that is to be checked.
+	:param difficulty: Difficulty level that is to be checked.
+	:return: Whether the Proof-of-Work found is valid or not.
+	"""
 	if difficulty <= 0:
 		raise ValueError("Difficulty must be a positive number!")
 
@@ -17,15 +22,28 @@ def verify_proof(prev_proof, proof, difficulty=2) -> bool:
 	return guess_hash[:difficulty] == "1" * difficulty
 
 
-def proof_of_work(last_proof: int) -> int:
+def proof_of_work(prev_proof: int, difficulty=2) -> int:
+	"""
+	Proof-of-Work algorithm. Increment a random number and trying to verify it
+	each time until Proof-of-work returns True.
+	:param prev_proof: Proof-of-Work of previous block.
+	:param difficulty: Difficulty level of mining.
+	:return:
+	"""
 	proof = 0
-	while verify_proof(proof, last_proof) is False:
+	while verify_proof(prev_proof, proof, difficulty) is False:
 		proof += 1
 
 	return proof
 
 
 class Block:
+	"""
+	Block Instance
+	------------------
+	A single block of the blockchain, containing the proof-of-work of the previous block alongside with the
+	verified transactions.
+	"""
 	def __init__(self, index: int, proof: int = 0, verified_transactions: list = [], previous_block_hash: str = None):
 		self.index: int = index
 		self.proof: int = proof
@@ -41,18 +59,17 @@ class Block:
 			return False
 		elif prev_block.index + 1 != self.index:
 			return False
-		elif prev_block.calculate_hash != self.previous_block_hash:
+		elif prev_block.calculate_hash() != self.previous_block_hash:
 			return False
 		elif len(self.verified_transactions) == 0 and self.index != 0:  # TODO: Ask about this one
 			return False
 		elif self.timestamp <= prev_block.timestamp:
 			return False
-		elif not self.verify_proof(self.proof, prev_block.proof):
+		elif not verify_proof(prev_block.proof, self.proof):
 			return False
 		else:
 			return True
 
-	@property
 	def calculate_hash(self) -> str:
 		"""
 		Returns the hash of the block by converting its instance into a JSON String.
@@ -77,29 +94,33 @@ class Block:
 			'previous_hash': self.previous_block_hash,
 			'timestamp': self.timestamp})
 
-	def to_json(self):
-		return json.dumps(self.to_dict(), sort_keys=True).encode('utf-8')
+	def to_json(self, indent=None):
+		return json.dumps(self.to_dict(), sort_keys=True, indent=indent).encode('utf-8')
 
 	def __repr__(self):
 		return self.to_json()
 
 	def __str__(self):
-		return self.__str__()
+		return str(self.to_json(indent=4).decode('utf-8'))
 
 
 class BlockChain:
-
+	"""
+	BlockChain
+	------------------
+	The BlockChain. ¯\_(ツ)_/¯
+	"""
 	def __init__(self):
-		self.chain: List[Block] = []
+		self.blocks: List[Block] = []
 		self.transactions: list = []
 
 	@property
 	def last_block(self) -> Block:
-		return self.chain[-1]
+		return self.blocks[-1]
 
 	@property
 	def size(self) -> int:
-		return len(self.chain)
+		return len(self.blocks)
 
 	def check_validity(self) -> bool:
 		"""
@@ -107,30 +128,48 @@ class BlockChain:
 		"""
 		block = self.last_block
 		while block.index >= 1:
-			prev_block = self.chain[block.index - 1]
+			prev_block = self.blocks[block.index - 1]
 			if not block.check_validity(prev_block):
 				return False
 
 		return True
 
-	def dump_blockchain(self):
-		print('=' * 23, f'[BLOCKCHAIN - {len(self.chain)}]', '=' * 23)
-		print("TODO - INFO ABOUT THE BLOCKCHAIN?")  # TODO: Info about the blockchain?
-		print('=' * 64)
-		for x in range(len(self.chain)):
-			block = self.chain[x]
-			print(f'block#{x} \t | TX - {len(block.verified_transactions)}\t |')
-			print('-' * 64)
-			for transaction in block.verified_transactions:
-				transaction.print_transaction()
-				print('-' * 64)
-			print("=" * 64)
+	def to_dict(self):
+		return collections.OrderedDict({
+			'length': self.size,
+			'chain': tuple(map(lambda o: o.to_dict(), self.blocks)),
+		})
+
+	def to_json(self, indent=None):
+		return json.dumps(self.to_dict(), sort_keys=True, indent=indent).encode('utf-8')
+
+	def __repr__(self):
+		return self.to_json()
+
+	def __str__(self):
+		return str(self.to_json(indent=4).decode('utf-8'))
 
 
 if __name__ == '__main__':
-	pass
-	# clientA = Client()
-	# clientB = Client()
+	import UniCoin.Transactions as Transactions
+	import UniCoin.Nodes as Nodes
+
+	minerA = Nodes.Miner(Nodes.KeyFactory.create_key())
+
+	print(minerA.blockchain)
+	t = minerA.send_coins((
+		(minerA.identity, 25),
+		(minerA.identity, 5),
+	))
+	print('=-=-'*64)
+	print('\n'*3)
+	print(f'Verified transaction? {t.check_validity(minerA.blockchain.blocks)}')
+	print('\n'*3)
+	minerA.add_transaction(t)
+	minerA.mine()
+	print('=-=-'*64)
+	print(minerA.blockchain)
+
 	#
 	# blockchain = BlockChain()
 	# blockchain.dump_blockchain()

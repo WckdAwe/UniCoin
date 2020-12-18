@@ -1,4 +1,7 @@
 from Crypto.PublicKey.RSA import RsaKey
+from prettytable import PrettyTable
+
+import UniCoin.Nodes as Nodes
 
 
 def menu_select_client_type(private_key):
@@ -66,3 +69,25 @@ def menu_select_key() -> RsaKey:
 		return menu_generate_key()
 	else:
 		return Nodes.KeyFactory.load_key(addresses[inp-2])
+
+
+def menu_main(my_node: Nodes.Client):
+	print('-'*23, f' [UNIWallet - {str(type(my_node).__name__).upper()}]', '-'*23)
+	print('1. My Balance')
+	print('2. Send Money')
+	print('3. Start/Stop Mining')
+	print('4. Debug Console')
+	print('0. Exit')
+
+	while True:
+		inp = int(input('Selection: '))
+		if inp not in range(0, 5):
+			print('Incorrect input. Try again.')
+			continue
+		break
+
+	if inp == 0:
+		t = PrettyTable(['Transaction', 'Balance'])
+		for utxo in my_node.UTXOs:
+			t.add_row([hash(utxo), utxo.balance])
+		print(t)
