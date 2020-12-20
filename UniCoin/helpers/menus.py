@@ -2,6 +2,7 @@ from Crypto.PublicKey.RSA import RsaKey
 from prettytable import PrettyTable
 
 import UniCoin.Nodes as Nodes
+import UniCoin.Transactions as Transactions
 
 
 def menu_select_client_type(private_key):
@@ -75,19 +76,76 @@ def menu_main(my_node: Nodes.Client):
 	print('-'*23, f' [UNIWallet - {str(type(my_node).__name__).upper()}]', '-'*23)
 	print('1. My Balance')
 	print('2. Send Money')
-	print('3. Start/Stop Mining')
-	print('4. Debug Console')
+	print('3. Dump Blockchain')
+	if isinstance(my_node, Nodes.Miner):
+		if my_node.is_mining:
+			print('4. Stop Mining')
+		else:
+			print('4. Start Mining')
+
+		print('5. Debug Console')
 	print('0. Exit')
 
 	while True:
 		inp = int(input('Selection: '))
-		if inp not in range(0, 5):
+		if inp not in range(0, 6 if isinstance(my_node, Nodes.Miner) else 4):
 			print('Incorrect input. Try again.')
 			continue
 		break
 
 	if inp == 0:
+		exit(0)
+	elif inp == 1:
 		t = PrettyTable(['Transaction', 'Balance'])
+		total = 0
 		for utxo in my_node.UTXOs:
 			t.add_row([hash(utxo), utxo.balance])
+			if utxo.balance > 0:
+				total += utxo.balance
+		t.add_row(['Total: ', total])
 		print(t)
+	elif inp == 2:
+		receivers = []
+		print(f'Your available balance is: {my_node.balance}')
+		while True:
+			try:
+				receiver = input('Send money to: ')
+				value = int(input('Amount: '))
+				resp = input(f'Are you sure you want to send {value} Unicoins to \'{receiver}\'? (Y/N): ')
+				if resp.upper() == 'Y':
+					receivers.append((receiver, value))
+
+				more = input('Would you like to send more Unicoins? (Y/N): ')
+				if more.upper() == 'Y':
+					continue
+				else:
+					break
+			except Exception:
+				pass
+
+		if len(receivers) > 0:
+			print('You are about to send money to the following people: ')
+			t = PrettyTable(['Address', 'Amount'])
+			for address, amount in receivers:
+				t.add_row([address, amount])
+			print(t)
+			resp = input('Execute? (Y/N): ')
+			if resp.upper() == 'Y':
+				if not my_node.send_coins(receivers):
+					print('Failed to create transaction.')
+				else:
+					print('Unicoins sent!')
+				# transaction.check_validity(my_node.blockchain.blocks)
+				# my_node.verified_transactions.append(transaction)
+			else:
+				print('Action cancelled!')
+		# my_node.send_coins()
+	elif inp == 3:
+		print(my_node.blockchain)
+	elif inp == 4:
+		my_node.toggle_mining()
+		print(f'Miner has {"started" if my_node.is_mining else "stopped"} mining.')
+	elif inp == 4:
+		pass
+
+

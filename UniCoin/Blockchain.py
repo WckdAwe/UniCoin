@@ -1,12 +1,15 @@
+import hashlib
 import json
 import collections
 import time
+
+import UniCoin.Transactions as Transactions
 
 from typing import List
 from Crypto.Hash import SHA256
 
 
-def verify_proof(prev_proof, proof, difficulty) -> bool:
+def verify_proof(prev_proof, proof, difficulty=2) -> bool:
 	"""
 	Verifying if the Proof-of-Work is correct, based on a specific difficulty.
 	:param prev_proof: Proof-of-Work of previous block.
@@ -44,28 +47,35 @@ class Block:
 	A single block of the blockchain, containing the proof-of-work of the previous block alongside with the
 	verified transactions.
 	"""
-	def __init__(self, index: int, proof: int = 0, verified_transactions: list = [], previous_block_hash: str = None):
+	def __init__(self, index: int, proof: int = 0, verified_transactions: list = [], previous_block_hash: str = None,
+				 timestamp: float = None):
 		self.index: int = index
 		self.proof: int = proof
 		self.verified_transactions: List[Transactions.Transaction] = verified_transactions
 		self.previous_block_hash: str = previous_block_hash
-		self.timestamp = time.time()
+		self.timestamp = timestamp or time.time()
 
 	def check_validity(self, prev_block) -> bool:
 		"""
 		:return: Whether the block is valid or not
 		"""
+		print(f'checking block validity {self.index}')
 		if not isinstance(prev_block, Block):
 			return False
 		elif prev_block.index + 1 != self.index:
+			print('incr')
 			return False
 		elif prev_block.calculate_hash() != self.previous_block_hash:
+			print('hash')
 			return False
 		elif len(self.verified_transactions) == 0 and self.index != 0:  # TODO: Ask about this one
+			print('trans')
 			return False
 		elif self.timestamp <= prev_block.timestamp:
+			print(f'timestamp {self.timestamp} <= {prev_block.timestamp}')
 			return False
 		elif not verify_proof(prev_block.proof, self.proof):
+			print('proof')
 			return False
 		else:
 			return True
@@ -86,6 +96,10 @@ class Block:
 		"""
 		return max([0, 50 - 5 * ((self.index + 1) // 4)])  # TODO: Maybe create an actual reward algorithm?
 
+	@property
+	def hash(self) -> str:
+		return hashlib.md5(self.to_json()).hexdigest()
+
 	def to_dict(self):
 		return collections.OrderedDict({
 			'index': self.index,
@@ -96,6 +110,22 @@ class Block:
 
 	def to_json(self, indent=None):
 		return json.dumps(self.to_dict(), sort_keys=True, indent=indent).encode('utf-8')
+
+	@classmethod
+	def from_json(cls, data):
+		index = int(data['index'])
+		proof = int(data['proof'])
+		verified_transactions = list(map(Transactions.Transaction.from_json, data['transactions']))
+		previous_block_hash = str(data['previous_hash'])
+		timestamp = float(data['timestamp'])
+
+		return cls(
+			index=index,
+			proof=proof,
+			verified_transactions=verified_transactions,
+			previous_block_hash=previous_block_hash,
+			timestamp=timestamp
+		)
 
 	def __repr__(self):
 		return self.to_json()
@@ -110,8 +140,8 @@ class BlockChain:
 	------------------
 	The BlockChain. ¯\_(ツ)_/¯
 	"""
-	def __init__(self):
-		self.blocks: List[Block] = []
+	def __init__(self, blocks: List[Block] = []):
+		self.blocks: List[Block] = blocks
 		self.transactions: list = []
 
 	@property
@@ -131,6 +161,7 @@ class BlockChain:
 			prev_block = self.blocks[block.index - 1]
 			if not block.check_validity(prev_block):
 				return False
+			block = prev_block
 
 		return True
 
@@ -143,56 +174,16 @@ class BlockChain:
 	def to_json(self, indent=None):
 		return json.dumps(self.to_dict(), sort_keys=True, indent=indent).encode('utf-8')
 
+	@classmethod
+	def from_json(cls, data):
+		blocks = list(map(Block.from_json, data['chain']))
+
+		return cls(
+			blocks=blocks
+		)
+
 	def __repr__(self):
 		return self.to_json()
 
 	def __str__(self):
 		return str(self.to_json(indent=4).decode('utf-8'))
-
-
-if __name__ == '__main__':
-	import UniCoin.Transactions as Transactions
-	import UniCoin.Nodes as Nodes
-
-	minerA = Nodes.Miner(Nodes.KeyFactory.create_key())
-
-	print(minerA.blockchain)
-	t = minerA.send_coins((
-		(minerA.identity, 25),
-		(minerA.identity, 5),
-	))
-	print('=-=-'*64)
-	print('\n'*3)
-	print(f'Verified transaction? {t.check_validity(minerA.blockchain.blocks)}')
-	print('\n'*3)
-	minerA.add_transaction(t)
-	minerA.mine()
-	print('=-=-'*64)
-	print(minerA.blockchain)
-
-	#
-	# blockchain = BlockChain()
-	# blockchain.dump_blockchain()
-	#
-	# t0 = Transaction(clientA.identity, clientB.identity, 5)
-	# t0.print_transaction()
-	# block = blockchain.construct_block(verified_transactions=[t0])
-	# print(block.to_json())
-	# blockchain.dump_blockchain()
-	# t0.sign_transaction(clientA)
-	# t0.print_transaction()
-	#
-	# ------ Invalidate Transaction for Fun ------
-	# print(f'Transaction is valid?: {t0.verify_transaction()}')
-	# print(t0.sender)
-	# t0.sender = binascii.hexlify(RSA.generate(1024, Crypto.Random.new().read).publickey().exportKey(format='DER')).decode('ascii')
-	# print(t0.sender)
-	# print(f'Transaction is valid?: {t0.verify_transaction()}')
-	#
-	# t1 = Transaction(clientB, clientA, 2)
-	#
-	# blockchain.add_transaction(t0)
-	# blockchain.add_transaction(t1)
-	# blockchain.mine()
-	#
-	# print(blockchain.chain)

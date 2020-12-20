@@ -1,9 +1,75 @@
 import json
+from types import SimpleNamespace
 
 from flask import request
 
 from UniCoin import app, my_node
 import UniCoin.Nodes as Nodes
+import UniCoin.Transactions as Transactions
+import UniCoin.Blockchain as Blockchain
+
+
+# --- BROADCAST ROUTES ---
+@app.route('/api/broadcasts/new_block', methods=['POST'])
+def broadcasts_new_block():
+	"""
+	:return:
+	"""
+	json_data = request.get_json()
+	if not json_data:
+		return json.dumps({
+			'message': 'Incorrect JSON Data.'
+		}), 400
+	data = json.loads(json_data)
+	block = Blockchain.Block.from_json(data)
+	if type(my_node) is Nodes.Miner:
+		# TODO: Fetch previous blocks if id is bad.
+		# TODO: Update UTXOs
+		if block.check_validity(my_node.blockchain.last_block):
+			print(f'Received a block: \'{block.hash}\'')
+			my_node.blockchain.blocks.append(block)
+			my_node.network.broadcast_block(block)
+		else:
+			print(f'Received a non-valid block: \'{block.hash}\'.')
+			if block.index > my_node.blockchain.last_block.index + 1:
+				print('Block was ahead... searching for bigger chain')
+				chain = my_node.network.check_peer_chains(my_node.blockchain.size)
+				if chain:
+					print('Found bigger chain... updating..')
+					my_node.blockchain = chain
+
+	elif type(my_node) is Nodes.Client:
+		my_node.network.broadcast_transaction(block)
+
+	return json.dumps({
+		'message': 'ok',
+	})
+
+
+@app.route('/api/broadcasts/new_transaction', methods=['POST'])
+def broadcasts_new_transaction():
+	"""
+	:return:
+	"""
+	json_data = request.get_json()
+	if not json_data:
+		return json.dumps({
+			'message': 'Incorrect JSON Data.'
+		}), 400
+	data = json.loads(json_data)
+	transaction = Transactions.Transaction.from_json(data)
+	if isinstance(my_node, Nodes.Miner):
+		if transaction.check_validity(chain=my_node.blockchain.blocks):
+			print(f'Received a transaction: \'{transaction.hash}\'')
+			my_node.network.broadcast_transaction(transaction)
+		else:
+			print(f'Received a non-valid transaction: \'{transaction.hash}\'.')
+	elif isinstance(my_node, Nodes.Client):
+		my_node.network.broadcast_transaction(transaction)
+
+	return json.dumps({
+		'message': 'ok',
+	})
 
 
 # --- BLOCKCHAIN ROUTES ---
@@ -22,30 +88,6 @@ def get_blockchain_chain():
 	"""
 	:return: JSON representation of the node's blockchain.
 	"""
-	return json.dumps({
-		'length': my_node.blockchain.size,
-		'chain': list(map(lambda o: o.to_dict(), my_node.blockchain.blocks))
-	})
-
-
-# --- TRANSACTION ROUTES ---
-@app.route('/api/transactions/new', methods=['POST'])
-def create_transaction():
-	"""
-	--- NOT SECURE | Just for demonstration purposes ---
-		Creates a new transaction using a POST request containing the
-		recipient's public key and value to be transferred.
-	"""
-	required_fields = ['recipient', 'value']
-
-	json_data = request.get_json()
-	if not json_data or \
-			all((json_data.get(field) is not None) for field in required_fields):
-		return json.dumps({
-			'message': 'Missing transaction parameters',
-		}), 400
-
-	# TODO: Create transaction!
 	return json.dumps({
 		'length': my_node.blockchain.size,
 		'chain': list(map(lambda o: o.to_dict(), my_node.blockchain.blocks))
@@ -71,9 +113,6 @@ def get_pending_transactions():
 @app.route('/api/transactions/UTXO', methods=['GET'])
 def my_utxo():
 	"""
-	--- NOT SECURE | Just for demonstration purposes ---
-		Creates a new transaction using a POST request containing the
-		recipient's public key and value to be transferred.
 	"""
 	if not isinstance(my_node, (Nodes.Miner, Nodes.Client)):
 		return json.dumps({
@@ -107,7 +146,7 @@ def get_node_information():
 	and public_key.
 	"""
 	return json.dumps({
-		'node_type': str(type(my_node).__name__),
+		'node_type': str(type(my_node).__name__).upper(),
 		'public_key': str(my_node.identity)
 	})
 
@@ -186,23 +225,3 @@ def receive_registration_request():
 # 		'registered': registered,
 # 		'not_registered': not_registered
 # 	})
-
-# Testers
-@app.route('/api/mine', methods=['GET'])
-def try_mine():
-	"""
-	:return: Returns all pending transactions to be added to a block of a specific node.
-	"""
-	if not isinstance(my_node, Nodes.Miner):
-		return json.dumps({
-			'message': 'Node is not a miner -> Node can\'t mine!'
-		}), 404
-	mined = my_node.mine()
-	if not mined:
-		return json.dumps({
-			'message': 'No transactions to mine!'
-		})
-
-	return json.dumps({
-		'message': 'Block mined!'
-	})

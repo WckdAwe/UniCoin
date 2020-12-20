@@ -1,3 +1,4 @@
+import hashlib
 import json
 import collections
 import time
@@ -10,50 +11,6 @@ from Crypto.Signature import pkcs1_15
 
 import UniCoin.Nodes as Nodes
 import UniCoin.Blockchain as Blockchain
-
-
-# class UTXO:
-# 	"""
-# 	Unspent Transaction Output
-# 	--------------------------
-# 	Helpful class to store locally for a node a UTXO.
-# 	This UTXO may not be validated in the long run, but it serves just as a way for the node to know
-# 	the sum of its balance.
-# 	"""
-# 	def __init__(self, block_index: int, transaction_index: int, output_index: int, value: int):
-# 		self.block_index: int = block_index
-# 		self.transaction_index: int = transaction_index
-# 		self.output_index: int = output_index
-#
-# 		self.value = value
-#
-# 	def to_dict(self):
-# 		return collections.OrderedDict({
-# 			'hash': hash(self),
-# 			'block_index': self.block_index,
-# 			'transaction_index': self.transaction_index,
-# 			'output_index': self.output_index,
-# 			'value': self.value})
-#
-# 	def to_json(self, indent=None):
-# 		return json.dumps(self.to_dict(), sort_keys=True, indent=indent).encode('utf-8')
-#
-# 	def __repr__(self):
-# 		return self.to_json()
-#
-# 	def __str__(self):
-# 		return str(self.to_json(indent=4).decode('utf-8'))
-#
-# 	def __hash__(self):
-# 		"""Hash should be the same as a Transaction Input Hash"""
-# 		return hash((self.block_index, self.transaction_index, self.output_index))
-#
-# 	def __eq__(self, other):
-# 		if not isinstance(other, (Transactions.UTXO, TransactionInput)):
-# 			return NotImplemented
-#
-# 		return self.block_index == other.block_index and self.transaction_index == other.transaction_index and \
-# 			   self.output_index == other.output_index
 
 
 class TransactionInput:
@@ -90,12 +47,15 @@ class TransactionInput:
 		"""
 		output = self.find_transaction(chain)
 		if output is None:
+			print('Couldn\'t find transaction.')
 			return False
 
 		if output.value <= 0:
+			print('Negative transaction value.')
 			return False
 
 		if output.recipient_address != sender:
+			print('Recipient Address != sender')
 			return False
 
 		self.__balance = output.value  # Cache the balance
@@ -104,7 +64,6 @@ class TransactionInput:
 
 	def to_dict(self):
 		return collections.OrderedDict({
-			'hash': hash(self),
 			'block_index': self.block_index,
 			'transaction_index': self.transaction_index,
 			'output_index': self.output_index})
@@ -127,6 +86,17 @@ class TransactionInput:
 
 		return self.block_index == other.block_index and self.transaction_index == other.transaction_index and \
 			   self.output_index == other.output_index
+
+	@classmethod
+	def from_json(cls, data):
+		block_index = int(data["block_index"])
+		transaction_index = int(data["transaction_index"])
+		output_index = int(data["output_index"])
+		return cls(
+			block_index=block_index,
+			transaction_index=transaction_index,
+			output_index=output_index
+		)
 
 
 class TransactionOutput:
@@ -155,14 +125,24 @@ class TransactionOutput:
 	def __hash__(self):
 		return hash((self.recipient_address, self.value))
 
+	@classmethod
+	def from_json(cls, data):
+		recipient_address = str(data["recipient_address"])
+		value = int(data["value"])
+		return cls(
+			recipient_address=recipient_address,
+			value=value
+		)
+
 
 class Transaction:
-	def __init__(self, sender: str = "", inputs: Tuple[TransactionInput] = None, outputs: Tuple[TransactionOutput] = None):
-		self.sender = sender or ""  # Alternative -> Sender could be found dynamically by getting first transaction output?
-		self.inputs: Tuple[TransactionInput] = inputs or tuple()
-		self.outputs: Tuple[TransactionOutput] = outputs or tuple()
-		self.timestamp = time.time()
-		self.signature = None
+	def __init__(self, sender: str = "", inputs: Tuple[TransactionInput] = (), outputs: Tuple[TransactionOutput] = (),
+				 timestamp: float = None, signature: str = None):
+		self.sender = sender  # Alternative -> Sender could be found dynamically by getting first transaction output?
+		self.inputs: Tuple[TransactionInput] = inputs
+		self.outputs: Tuple[TransactionOutput] = outputs
+		self.timestamp = timestamp or time.time()
+		self.signature = signature
 
 		# Helper variables to avoid unnecessary calculations
 		self.__balance_input: int = -1
@@ -224,23 +204,32 @@ class Transaction:
 
 	def check_validity(self, chain) -> bool:
 		if not self.verify_signature():
+			print('Validity failed, signature')
 			return False
 
 		for inp in self.inputs:
 			if not inp.check_validity(self.sender, chain):
+				print('Validity failed, input')
 				return False
 
 		for out in self.outputs:
 			if not out.check_validity():
+				print('Validity failed, output')
 				return False
 
 		if not self.__calculate_transaction_fee() >= 0:			    # Output is more than available input
+			print('Validity failed, negative transaction fee')
 			return False
 
 		return True						 							# TODO: Check previous blocks!
 
+	@property
+	def hash(self) -> str:
+		return hashlib.md5(self.to_json()).hexdigest()
+
 	def to_dict(self):
 		return collections.OrderedDict({
+			'sender': self.sender,
 			'inputs': tuple(map(lambda o: o.to_dict(), self.inputs)),
 			'outputs': tuple(map(lambda o: o.to_dict(), self.outputs)),
 			'timestamp': self.timestamp,
@@ -258,6 +247,21 @@ class Transaction:
 
 	def __hash__(self):
 		return hash((self.sender, self.inputs, self.outputs, self.timestamp, self.signature))
+
+	@classmethod
+	def from_json(cls, data):
+		sender = str(data["sender"])
+		inputs = tuple(map(TransactionInput.from_json, data["inputs"]))
+		outputs = tuple(map(TransactionOutput.from_json, data["outputs"]))
+		timestamp = float(data["timestamp"])
+		signature = str(data["signature"])
+		return cls(
+			sender=sender,
+			inputs=inputs,
+			outputs=outputs,
+			timestamp=timestamp,
+			signature=signature
+		)
 
 
 if __name__ == '__main__':

@@ -1,10 +1,14 @@
 import binascii
 import json
 import os
+import threading
 import uuid
 import operator
 import Crypto
 import requests
+import concurrent.futures
+import queue
+import time
 
 from typing import List, Set
 from Crypto.PublicKey import RSA
@@ -46,15 +50,171 @@ class PeerNetwork:
 	Network of peers stored in each node.
 	Handles registration/incoming messages etc.
 	"""
-	def __init__(self):
-		self._peers = set()
+	def __init__(self, my_peer: Peer = None):
+		self._my_peer: Peer = my_peer
+		self._peers = self.__load_peers()
+		self.__transactions_queue = queue.Queue()
+		self.__blocks_queue = queue.Queue()
+
+		# Threads for "Async Handling" of transactions and blocks.
+		# Threads are just a quick addition. They are not correctly made
+		# and using infinite loops to work instead of an event system...
+
+		self.__transactions_thread = threading.Thread(target=self.__handle_transactions, args=(), daemon=True)
+		self.__transactions_thread.start()
+
+		self.__blocks_thread = threading.Thread(target=self.__handle_blocks, args=(), daemon=True)
+		self.__blocks_thread.start()
+
+	def __load_peers(self) -> set:
+		"""
+		Load peers from file.
+		:return: Set of available peers.
+		"""
+		peers = set()
+		try:
+			with open(f'{paths.FILE_NODELIST}', 'r') as file:
+				data = json.load(file)
+				for peer in data:
+					address, port = str(peer).split(':')
+					peers.add(Peer(
+						address=address,
+						port=int(port)
+					))
+				return json.load(file)
+		except Exception:
+			pass
+		finally:
+			if self._my_peer:
+				try:
+					peers.remove(self._my_peer)
+				except Exception:
+					pass
+			return peers
+
+	def __store_peers(self):
+		"""
+		Store peers to file.
+		"""
+		file_name = f'{paths.FILE_NODELIST}'
+		os.makedirs(os.path.dirname(file_name), exist_ok=True)
+		peers = self.peers.copy()
+
+		if self._my_peer:
+			peers.add(self._my_peer)
+
+		with open(file_name, 'wb+') as file:
+			data = json.dumps(list(map(lambda o: str(o), peers))).encode('utf-8')
+			file.write(data)
 
 	def register_peer(self, peer: Peer):
-		if peer in self._peers:
+		"""
+		Register peer if not already registered.
+		:param peer:
+		:return: If peer was registered or not.
+		"""
+		if peer in self.peers:
 			return False
 
-		self._peers.add(peer)
+		self.peers.add(peer)
+		self.__store_peers()
 		return True
+
+	@staticmethod
+	def __post_json(url, data):
+		"""
+		:param url: sub_url of peer to call.
+		:param data: json data to pass.
+		:return: None if failure, otherwise the response text.
+		"""
+		try:
+			response = requests.post(url, json=data)
+			if response.status_code == 200:
+				return response.text
+			return None
+		except Exception as e:
+			# print(f'Exception posting JSON: {e}')
+			return None
+
+	def __broadcast_json(self, url, data):
+		"""
+		Broadcast a JSON Post to all peers.
+		:param url: sub_url of peer to call.
+		:param data: json data to pass.
+		:return: Tuple containing successfully sent and total peers.
+		"""
+		total_peers = len(self.peers)
+		with concurrent.futures.ThreadPoolExecutor() as executor:
+			futures = [
+				executor.submit(self.__post_json, f'http://{peer}/{url}', data) for peer in self.peers
+			]
+			total_sent = len(list(filter(lambda o: o is not None, [f.result() for f in futures])))
+
+			return total_sent, total_peers
+
+	def __handle_transactions(self):
+		"""
+		Thread handling all incoming transactions.
+		"""
+		q = self.__transactions_queue
+		while True:
+			if not q.empty():
+				transaction: Transactions.Transaction = q.get(timeout=1)
+				t_hash = transaction.hash
+				print(f'Broadcasting Transaction \'{t_hash}\'.')
+				data = transaction.to_json().decode('utf-8')
+				if data is None:
+					print(f'Broadcasting Transaction \'{t_hash}\' failed. Bad JSON.')
+				total_sent, total_peers = self.__broadcast_json(f'api/broadcasts/new_transaction', data)
+
+				print(f'Transaction {t_hash} broadcast ended. {total_sent}/{total_peers} peers received the message.')
+			time.sleep(1)
+
+	def __handle_blocks(self):
+		"""
+		Thread handling all incoming transactions.
+		"""
+		q = self.__blocks_queue
+		while True:
+			if not q.empty():
+				block: Blockchain.Block = q.get(timeout=1)
+				b_hash = block.hash
+				print(f'Broadcasting Block \'{b_hash}\'.')
+				data = block.to_json().decode('utf-8')
+				if data is None:
+					print(f'Broadcasting Block \'{b_hash}\' failed. Bad JSON.')
+				total_sent, total_peers = self.__broadcast_json(f'api/broadcasts/new_block', data)
+
+				print(f'Block {b_hash} broadcast ended. {total_sent}/{total_peers} peers received the message.')
+			time.sleep(1)
+
+	def broadcast_transaction(self, transaction: Transactions.Transaction):
+		"""
+		Add transaction in queue to be broadcasted.
+		:param transaction:
+		"""
+		self.__transactions_queue.put(transaction)
+
+	def broadcast_block(self, block: Blockchain.Block):
+		self.__blocks_queue.put(block)
+
+	def check_peer_chains(self, my_length: int):
+		tmp_length = my_length
+		tmp_chain = None
+		for peer in self.peers:
+			print(f'Searching peer {peer}')
+			length = self.check_chain_length(peer)
+			print(f'{peer} length: {length}')
+			if length > tmp_length:
+				chain = self.steal_chain(peer)
+				print(f'peer {peer} chain')
+				print(f'{chain}')
+				if chain.check_validity():
+					tmp_chain = chain
+					tmp_length = tmp_chain.size
+					print('chain swapped')
+
+		return tmp_chain
 
 	@staticmethod
 	def check_chain_length(peer: Peer) -> int:
@@ -85,9 +245,7 @@ class PeerNetwork:
 
 		if response.status_code == 200:
 			try:
-				json_data = json.loads(response.text)
-				chain_data = json_data["chain"]
-				return Blockchain.BlockChain
+				return Blockchain.BlockChain.from_json(json.loads(response.text))
 			except Exception:
 				print(f'Failed fetching blockchain from peer {peer}')
 				return None
@@ -102,7 +260,7 @@ class PeerNetwork:
 
 
 class Node:
-	TYPE_CLIENT = 0,
+	TYPE_CLIENT = 0
 	TYPE_MINER = 1
 
 	def __init__(self, private_key: RsaKey):
@@ -113,11 +271,11 @@ class Node:
 
 	@property
 	def identity(self) -> str:
+		"""
+		ASCII Representation of node's public_key
+		:return:
+		"""
 		return binascii.hexlify(self.public_key.exportKey(format='DER')).decode('ascii')
-
-	@property
-	def type(self):
-		return self.TYPE_UNINITIALIZED
 
 	def __str__(self):
 		return self.identity
@@ -129,7 +287,13 @@ class Client(Node):
 		self.signer: PKCS115_SigScheme = pkcs1_15.new(self.private_key)
 		self.UTXOs: Set[Transactions.TransactionInput] = set()  # List of unspent transactions
 
-	def send_coins(self, transactions: tuple) -> bool:
+	@property
+	def balance(self):
+		return sum(
+			filter(lambda o: o > 0, [utxo.balance for utxo in self.UTXOs])
+		)
+
+	def send_coins(self, transactions: list) -> bool:
 		transaction_outputs: List[Transactions.TransactionOutput] = []
 		total_balance = 0
 		allocated_balance = 0
@@ -172,8 +336,10 @@ class Client(Node):
 		)
 		transaction.sign_transaction(self)
 
-		# TODO: Broadcast Transaction
-		return transaction  # TODO: Remove tester
+		if isinstance(self, Miner):
+			self.add_transaction(transaction)
+
+		self.network.broadcast_transaction(transaction)
 		return True
 
 
@@ -185,6 +351,22 @@ class Miner(Client):
 		# Unconventional, but i guess it's fine just for the demonstration
 		# Miner shouldn't create Genesis block?
 		self.__construct_genesis()
+
+		# Settings
+		self.__is_mining: bool = False
+		self.__mining_thread = threading.Thread(target=self.__mine, daemon=True)
+
+	@property
+	def is_mining(self):
+		return self.__is_mining
+
+	def toggle_mining(self, mine: bool=None):
+		self.__is_mining = not self.__is_mining if mine is None else mine
+
+		if self.__is_mining:
+			self.__mining_thread.start()
+		else:
+			self.__mining_thread = threading.Thread(target=self.__mine, daemon=True)
 
 	def __construct_genesis(self):
 		self.construct_block(
@@ -209,26 +391,29 @@ class Miner(Client):
 
 		# Coinbase Transaction
 		coinbase = Transactions.Transaction(
-			outputs=[
+			outputs=tuple([
 				Transactions.TransactionOutput(
 					self.identity,
 					coinbase_total
-				)
-			]
+				)]
+			)
 		)
 		coinbase.sign_transaction(self)
 		verified_transactions.insert(0, coinbase)
 
-		# TODO: Broadcast BLOCK!
+		self.network.broadcast_block(block)	 # Broadcast block to available nodes
+
 		self.blockchain.blocks.append(block)
-		self.UTXOs.add(
-			Transactions.TransactionInput(
+		utxo = Transactions.TransactionInput(
 				block.index, 0, 0, coinbase_total
 			)
+		utxo.check_validity(self.identity, self.blockchain.blocks)
+		self.UTXOs.add(
+			utxo
 		)
 		return block
 
-	def mine(self):
+	def manual_mine(self):
 		"""
 		Mine --WITHOUT TRANSACTION LIMIT--
 		:return:
@@ -236,12 +421,17 @@ class Miner(Client):
 		if not self.verified_transactions:
 			return False
 
-		#TODO: Broadcast block
+		# TODO: Broadcast block
+		transactions = self.verified_transactions
+		self.verified_transactions = []
 		new_block = self.construct_block(
-			verified_transactions=self.verified_transactions,
+			verified_transactions=transactions,
 		)
-		print(new_block)
 		return new_block
+
+	def __mine(self):
+		while self.__is_mining:
+			self.manual_mine()
 
 	def add_transaction(self, transaction) -> bool:
 		if not isinstance(transaction, Transactions.Transaction):
@@ -252,6 +442,17 @@ class Miner(Client):
 			return True
 
 		return False
+
+	# def send_coins(self, transactions: list) -> bool:
+	# 	transaction = super().send_coins(transactions)
+	# 	if not transaction:
+	# 		return False
+	#
+	# 	# Will create issues in the future. Just a quick patch
+	# 	# Cause... it is a 7 day sprint.
+	# 	t = copy.deepcopy(transaction)
+	# 	self.add_transaction(t)
+	# 	return transaction
 
 
 class KeyFactory:
