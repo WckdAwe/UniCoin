@@ -4,6 +4,9 @@ from prettytable import PrettyTable
 import UniCoin.Nodes as Nodes
 import UniCoin.Transactions as Transactions
 
+import logging
+log = logging.getLogger('werkzeug')
+
 
 def menu_select_client_type(private_key):
 	import UniCoin.Nodes as Nodes
@@ -77,18 +80,18 @@ def menu_main(my_node: Nodes.Client):
 	print('1. My Balance')
 	print('2. Send Money')
 	print('3. Dump Blockchain')
+	print('4. Debug Console')
 	if isinstance(my_node, Nodes.Miner):
 		if my_node.is_mining:
-			print('4. Stop Mining')
+			print('5. Stop Mining')
 		else:
-			print('4. Start Mining')
+			print('5. Start Mining')
 
-		print('5. Debug Console')
 	print('0. Exit')
 
 	while True:
 		inp = int(input('Selection: '))
-		if inp not in range(0, 6 if isinstance(my_node, Nodes.Miner) else 4):
+		if inp not in range(0, 6 if isinstance(my_node, Nodes.Miner) else 5):
 			print('Incorrect input. Try again.')
 			continue
 		break
@@ -98,7 +101,7 @@ def menu_main(my_node: Nodes.Client):
 	elif inp == 1:
 		t = PrettyTable(['Transaction', 'Balance'])
 		total = 0
-		for utxo in my_node.UTXOs:
+		for utxo in my_node.my_UTXOs:
 			t.add_row([hash(utxo), utxo.balance])
 			if utxo.balance > 0:
 				total += utxo.balance
@@ -143,9 +146,12 @@ def menu_main(my_node: Nodes.Client):
 	elif inp == 3:
 		print(my_node.blockchain)
 	elif inp == 4:
+		if log.level is not logging.DEBUG:
+			log.setLevel(logging.DEBUG)
+			input('Press any key to DISABLE Debug Console.\n')
+			log.setLevel(logging.ERROR)
+	elif inp == 5:
 		my_node.toggle_mining()
 		print(f'Miner has {"started" if my_node.is_mining else "stopped"} mining.')
-	elif inp == 4:
-		pass
 
 

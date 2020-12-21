@@ -10,7 +10,7 @@ import concurrent.futures
 import queue
 import time
 
-from typing import List, Set
+from typing import List, Set, Dict
 from Crypto.PublicKey import RSA
 from Crypto.PublicKey.RSA import RsaKey
 from Crypto.Signature import pkcs1_15
@@ -19,6 +19,9 @@ from Crypto.Signature.pkcs1_15 import PKCS115_SigScheme
 import UniCoin.helpers.paths as paths
 import UniCoin.Blockchain as Blockchain
 import UniCoin.Transactions as Transactions
+
+import logging
+log = logging.getLogger('werkzeug')
 
 
 class Peer:
@@ -133,7 +136,6 @@ class PeerNetwork:
 				return response.text
 			return None
 		except Exception as e:
-			# print(f'Exception posting JSON: {e}')
 			return None
 
 	def __broadcast_json(self, url, data):
@@ -161,13 +163,13 @@ class PeerNetwork:
 			if not q.empty():
 				transaction: Transactions.Transaction = q.get(timeout=1)
 				t_hash = transaction.hash
-				print(f'Broadcasting Transaction \'{t_hash}\'.')
+				log.debug(f'[TRANSACTION] Broadcasting Transaction \'{t_hash}\'.')
 				data = transaction.to_json().decode('utf-8')
 				if data is None:
-					print(f'Broadcasting Transaction \'{t_hash}\' failed. Bad JSON.')
+					log.debug(f'[TRANSACTION] Broadcasting Transaction \'{t_hash}\' failed. Bad JSON.')
 				total_sent, total_peers = self.__broadcast_json(f'api/broadcasts/new_transaction', data)
 
-				print(f'Transaction {t_hash} broadcast ended. {total_sent}/{total_peers} peers received the message.')
+				log.debug(f'[TRANSACTION] \'{t_hash}\' broadcast ended. {total_sent}/{total_peers} peers received the message.')
 			time.sleep(1)
 
 	def __handle_blocks(self):
@@ -179,13 +181,13 @@ class PeerNetwork:
 			if not q.empty():
 				block: Blockchain.Block = q.get(timeout=1)
 				b_hash = block.hash
-				print(f'Broadcasting Block \'{b_hash}\'.')
+				log.debug(f'[BLOCK] Broadcasting Block \'{b_hash}\'.')
 				data = block.to_json().decode('utf-8')
 				if data is None:
-					print(f'Broadcasting Block \'{b_hash}\' failed. Bad JSON.')
+					log.debug(f'[BLOCK] Broadcasting Block \'{b_hash}\' failed. Bad JSON.')
 				total_sent, total_peers = self.__broadcast_json(f'api/broadcasts/new_block', data)
 
-				print(f'Block {b_hash} broadcast ended. {total_sent}/{total_peers} peers received the message.')
+				log.debug(f'[BLOCK] \'{b_hash}\' broadcast ended. {total_sent}/{total_peers} peers received the message.')
 			time.sleep(1)
 
 	def broadcast_transaction(self, transaction: Transactions.Transaction):
@@ -202,17 +204,13 @@ class PeerNetwork:
 		tmp_length = my_length
 		tmp_chain = None
 		for peer in self.peers:
-			print(f'Searching peer {peer}')
 			length = self.check_chain_length(peer)
-			print(f'{peer} length: {length}')
 			if length > tmp_length:
 				chain = self.steal_chain(peer)
-				print(f'peer {peer} chain')
-				print(f'{chain}')
 				if chain.check_validity():
 					tmp_chain = chain
 					tmp_length = tmp_chain.size
-					print('chain swapped')
+					log.debug(f'[PEER] Found bigger valid chain from \'{peer}\'.')
 
 		return tmp_chain
 
@@ -227,10 +225,9 @@ class PeerNetwork:
 		if response.status_code == 200:
 			try:
 				json_data = json.loads(response.text)
-				length = json_data["length"]
 				return json_data["length"]
 			except Exception:
-				print(f'Failed fetching blockchain length from peer {peer}')
+				log.debug(f'[PEER] Failed fetching blockchain length from peer {peer}')
 				return 0
 		return 0
 
@@ -247,7 +244,7 @@ class PeerNetwork:
 			try:
 				return Blockchain.BlockChain.from_json(json.loads(response.text))
 			except Exception:
-				print(f'Failed fetching blockchain from peer {peer}')
+				log.debug(f'[PEER] Failed fetching blockchain from peer {peer}')
 				return None
 		return None
 
@@ -285,12 +282,15 @@ class Client(Node):
 	def __init__(self, private_key: RsaKey):
 		super().__init__(private_key)
 		self.signer: PKCS115_SigScheme = pkcs1_15.new(self.private_key)
-		self.UTXOs: Set[Transactions.TransactionInput] = set()  # List of unspent transactions
+		self.my_UTXOs: Set[Transactions.TransactionInput] = set()  # List of unspent transactions
+
+		# List of unspent transactions + confirm
+		self.my_UTXOs: Dict[Transactions.TransactionInput, int] = dict()
 
 	@property
 	def balance(self):
 		return sum(
-			filter(lambda o: o > 0, [utxo.balance for utxo in self.UTXOs])
+			filter(lambda o: o > 0, [utxo.balance for utxo in self.my_UTXOs])
 		)
 
 	def send_coins(self, transactions: list) -> bool:
@@ -309,11 +309,11 @@ class Client(Node):
 					)
 					total_balance += t[1]
 			except Exception:
-				print('Failed parsing transactions. Wrong tuple provided.')
+				log.error('Failed parsing transactions. Wrong tuple provided.')
 				return False
 
 		# Allocate enough funds
-		sorted_utxo: List[Transactions.TransactionInput] = sorted(self.UTXOs, key=operator.attrgetter('balance'))
+		sorted_utxo: List[Transactions.TransactionInput] = sorted(self.my_UTXOs, key=operator.attrgetter('balance'))
 		selected_utxo: List[Transactions.TransactionInput] = []
 		for utxo in sorted_utxo:
 			if allocated_balance >= total_balance:
@@ -346,7 +346,8 @@ class Client(Node):
 class Miner(Client):
 	def __init__(self, private_key: RsaKey):
 		super().__init__(private_key)
-		self.verified_transactions: List = []  # Store Verified transactions to input in block
+		self.verified_transactions: Dict[str, Transactions.Transaction] = dict()  # Store Verified transactions to input in block
+		self.UTXOs: set = set()  # List of Unspent Transactions Available
 
 		# Unconventional, but i guess it's fine just for the demonstration
 		# Miner shouldn't create Genesis block?
@@ -355,18 +356,6 @@ class Miner(Client):
 		# Settings
 		self.__is_mining: bool = False
 		self.__mining_thread = threading.Thread(target=self.__mine, daemon=True)
-
-	@property
-	def is_mining(self):
-		return self.__is_mining
-
-	def toggle_mining(self, mine: bool=None):
-		self.__is_mining = not self.__is_mining if mine is None else mine
-
-		if self.__is_mining:
-			self.__mining_thread.start()
-		else:
-			self.__mining_thread = threading.Thread(target=self.__mine, daemon=True)
 
 	def __construct_genesis(self):
 		self.construct_block(
@@ -404,14 +393,37 @@ class Miner(Client):
 		self.network.broadcast_block(block)	 # Broadcast block to available nodes
 
 		self.blockchain.blocks.append(block)
+
+		# -- Add Coinbase as new UTXO for Miner --
 		utxo = Transactions.TransactionInput(
 				block.index, 0, 0, coinbase_total
 			)
 		utxo.check_validity(self.identity, self.blockchain.blocks)
-		self.UTXOs.add(
+		self.my_UTXOs.add(
 			utxo
 		)
+		# ----------------------------------------
+
+		# -- Add all Outputs as new UTXOS --
+
+		# ----------------------------------
 		return block
+
+	@property
+	def is_mining(self):
+		return self.__is_mining
+
+	def toggle_mining(self, mine: bool = None):
+		self.__is_mining = not self.__is_mining if mine is None else mine
+
+		if self.__is_mining:
+			self.__mining_thread.start()
+		else:
+			self.__mining_thread = threading.Thread(target=self.__mine, daemon=True)
+
+	def __mine(self):
+		while self.__is_mining:
+			self.manual_mine()
 
 	def manual_mine(self):
 		"""
@@ -421,38 +433,26 @@ class Miner(Client):
 		if not self.verified_transactions:
 			return False
 
-		# TODO: Broadcast block
-		transactions = self.verified_transactions
-		self.verified_transactions = []
+		transactions: Dict[str, Transactions.Transaction] = self.verified_transactions
+		self.verified_transactions = dict()
 		new_block = self.construct_block(
-			verified_transactions=transactions,
+			verified_transactions=list(transactions.values()),
 		)
 		return new_block
-
-	def __mine(self):
-		while self.__is_mining:
-			self.manual_mine()
 
 	def add_transaction(self, transaction) -> bool:
 		if not isinstance(transaction, Transactions.Transaction):
 			raise ValueError("Transaction is not a valid Transaction object!")
 
-		if transaction.check_validity(self.blockchain.blocks):
-			self.verified_transactions.append(transaction)
-			return True
+		t_hash = transaction.hash
+		if t_hash in self.verified_transactions.keys():
+			return False
 
-		return False
+		if not transaction.check_validity(self.blockchain.blocks):
+			return False
 
-	# def send_coins(self, transactions: list) -> bool:
-	# 	transaction = super().send_coins(transactions)
-	# 	if not transaction:
-	# 		return False
-	#
-	# 	# Will create issues in the future. Just a quick patch
-	# 	# Cause... it is a 7 day sprint.
-	# 	t = copy.deepcopy(transaction)
-	# 	self.add_transaction(t)
-	# 	return transaction
+		self.verified_transactions[t_hash] = transaction
+		return True
 
 
 class KeyFactory:

@@ -1,12 +1,16 @@
 import json
-from types import SimpleNamespace
-
-from flask import request
-
-from UniCoin import app, my_node
 import UniCoin.Nodes as Nodes
 import UniCoin.Transactions as Transactions
 import UniCoin.Blockchain as Blockchain
+
+from flask import request
+from UniCoin import app, my_node
+
+import logging
+log = logging.getLogger('werkzeug')
+
+# TODO: Maybe routes should only be used to verify inputs
+# TODO: Then proceed in Controller classes?
 
 
 # --- BROADCAST ROUTES ---
@@ -22,24 +26,34 @@ def broadcasts_new_block():
 		}), 400
 	data = json.loads(json_data)
 	block = Blockchain.Block.from_json(data)
-	if type(my_node) is Nodes.Miner:
-		# TODO: Fetch previous blocks if id is bad.
-		# TODO: Update UTXOs
+
+	log.debug(f'[BLOCK] Received:  \'{block.hash}\'')
+	if isinstance(my_node, Nodes.Miner):
 		if block.check_validity(my_node.blockchain.last_block):
-			print(f'Received a block: \'{block.hash}\'')
+			log.debug(f'[BLOCK] Validated: \'{block.hash}\'')
 			my_node.blockchain.blocks.append(block)
+
+			# -- UPDATE UTXO SET --
+			my_node.UTXOs.difference_update(block.extract_STXOs())
+			my_node.UTXOs = my_node.UTXOs.union(block.extract_UTXOs())
+			# ---------------------
+
 			my_node.network.broadcast_block(block)
 		else:
-			print(f'Received a non-valid block: \'{block.hash}\'.')
 			if block.index > my_node.blockchain.last_block.index + 1:
-				print('Block was ahead... searching for bigger chain')
+				log.debug(f'[BLOCK] Rejected (AHEAD): \'{block.hash}\'')
 				chain = my_node.network.check_peer_chains(my_node.blockchain.size)
 				if chain:
-					print('Found bigger chain... updating..')
+					log.debug('[BLOCKCHAIN] Fetched bigger valid chain.')
+					# TODO: Must update UTXOs!
 					my_node.blockchain = chain
-
+			else:
+				log.debug(f'[BLOCK] Rejected (INVALID): \'{block.hash}\'')
 	elif type(my_node) is Nodes.Client:
-		my_node.network.broadcast_transaction(block)
+		log.debug(f'[BLOCK] ECHOING: \'{block.hash}\'')
+		# TODO: Check if is_valid (lite edition)?
+		if block.check_validity(my_node.blockchain.last_block, lite=True):
+			my_node.network.broadcast_block(block)  # Echo Transaction
 
 	return json.dumps({
 		'message': 'ok',
@@ -59,12 +73,14 @@ def broadcasts_new_transaction():
 	data = json.loads(json_data)
 	transaction = Transactions.Transaction.from_json(data)
 	if isinstance(my_node, Nodes.Miner):
-		if transaction.check_validity(chain=my_node.blockchain.blocks):
-			print(f'Received a transaction: \'{transaction.hash}\'')
+		success = my_node.add_transaction(transaction)
+		if success:
+			log.debug(f'[TRANSACTION] Validated: \'{transaction.hash}\'')
 			my_node.network.broadcast_transaction(transaction)
 		else:
-			print(f'Received a non-valid transaction: \'{transaction.hash}\'.')
+			log.debug(f'[TRANSACTION] Rejected (INVALID or EXISTS): \'{transaction.hash}\'')
 	elif isinstance(my_node, Nodes.Client):
+		log.debug(f'[TRANSACTION] ECHOING: \'{transaction.hash}\'')
 		my_node.network.broadcast_transaction(transaction)
 
 	return json.dumps({
@@ -121,9 +137,9 @@ def my_utxo():
 
 	# TODO: Create transaction!
 	return json.dumps({
-		'length': len(my_node.UTXOs),
-		'total': sum([t.value for t in my_node.UTXOs]),
-		'UTXOs':  list(map(lambda o: o.to_dict(), my_node.UTXOs)),
+		'length': len(my_node.my_UTXOs),
+		'total': sum([t.value for t in my_node.my_UTXOs]),
+		'UTXOs':  list(map(lambda o: o.to_dict(), my_node.my_UTXOs)),
 	})
 
 
@@ -175,53 +191,20 @@ def receive_registration_request():
 				registered.append(address)
 				# TODO: This should be extracted to somewhere else, otherwise the node could be attacked.
 				if my_node.network.check_chain_length(peer) > my_node.blockchain.size:
-					print(f'Peer \'{peer}\' has longer blockchain length.')
+					log.debug(f'[PEER] \'{peer}\' has longer blockchain length.')
 					chain = my_node.network.steal_chain(peer)
 					if chain.check_validity():
 						my_node.blockchain = chain
-						print(f'Now using the blockchain of peer \'{peer}\'.')
+						log.debug(f'[PEER] Now using the blockchain of peer \'{peer}\'')
 					else:
-						print(f'Failed to validate blockchain of peer \'{peer}\'.')
-				else:
-					print(f'Peer \'{peer}\' has smaller or equal chain with us.')
+						log.debug(f'[PEER] Failed to validate blockchain of peer \'{peer}\'.')
 			else:
 				not_registered.append(address)
 		except Exception as e:
 			not_registered.append(address)
-			print(e)
+			log.error(e)
 			continue
 	return json.dumps({
 		'registered': registered,
 		'not_registered': not_registered
 	})
-
-
-# @app.route('/api/nodes/socialize', methods=['GET'])
-# def send_registration_request():
-# 	"""
-# 	Pings every known peer to socialize with them, and register if
-# 	not already.
-# 	:return:
-# 	"""
-# 	peers = my_node.network.peers
-# 	registered = []
-# 	not_registered = []
-# 	for peer in peers:
-# 		try:
-# 			data = [f'{request.host_url}:5000']
-# 			headers = {'Content-Type': 'application/json'}
-#
-# 			response = requests.post(f'http://{peer}/api/nodes/register',
-# 									 data=json.dumps(data), headers=headers)
-#
-# 			if response.status_code == 200:
-# 				registered.append(str(peer))
-# 			else:
-# 				not_registered.append(str(peer))
-# 		except Exception as e:
-# 			not_registered.append(str(peer))
-#
-# 	return json.dumps({
-# 		'registered': registered,
-# 		'not_registered': not_registered
-# 	})

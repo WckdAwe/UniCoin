@@ -5,8 +5,11 @@ import time
 
 import UniCoin.Transactions as Transactions
 
-from typing import List
+from typing import List, Tuple
 from Crypto.Hash import SHA256
+
+import logging
+log = logging.getLogger('werkzeug')
 
 
 def verify_proof(prev_proof, proof, difficulty=2) -> bool:
@@ -55,28 +58,29 @@ class Block:
 		self.previous_block_hash: str = previous_block_hash
 		self.timestamp = timestamp or time.time()
 
-	def check_validity(self, prev_block) -> bool:
+	def check_validity(self, prev_block, lite=False) -> bool:
 		"""
 		:return: Whether the block is valid or not
 		"""
-		print(f'checking block validity {self.index}')
 		if not isinstance(prev_block, Block):
 			return False
 		elif prev_block.index + 1 != self.index:
-			print('incr')
+			log.debug(f'[BLOCK] Verification Failure (BLOCK ORDER) \'{self.hash}\'')
 			return False
 		elif prev_block.calculate_hash() != self.previous_block_hash:
-			print('hash')
+			log.debug(f'[BLOCK] Verification Failure (HASH) \'{self.hash}\'')
 			return False
 		elif len(self.verified_transactions) == 0 and self.index != 0:  # TODO: Ask about this one
-			print('trans')
+			log.debug(f'[BLOCK] Verification Failure (VERIFIED TRANSACTION) \'{self.hash}\'')
 			return False
 		elif self.timestamp <= prev_block.timestamp:
-			print(f'timestamp {self.timestamp} <= {prev_block.timestamp}')
+			log.debug(f'[BLOCK] Verification Failure (TIMESTAMP) \'{self.hash}\'')
 			return False
 		elif not verify_proof(prev_block.proof, self.proof):
-			print('proof')
+			log.debug(f'[BLOCK] Verification Failure (PROOF) \'{self.hash}\'')
 			return False
+		# TODO: Check coinbase!
+		# TODO: Check each transaction!
 		else:
 			return True
 
@@ -99,6 +103,41 @@ class Block:
 	@property
 	def hash(self) -> str:
 		return hashlib.md5(self.to_json()).hexdigest()
+
+	def extract_UTXOs(self) -> set():
+		resp = set()
+		for t_indx, transaction in enumerate(self.verified_transactions):
+			outputs: Tuple[Transactions.TransactionOutput] = transaction.outputs
+			for o_indx, output in enumerate(outputs):
+				utxo: Transactions.TransactionInput = Transactions.TransactionInput(
+					block_index=self.index,
+					transaction_index=t_indx,
+					output_index=o_indx
+				)
+				resp.add(utxo.hash)
+		return resp
+
+	def extract_STXOs(self) -> set():
+		resp = set()
+		for t_indx, transaction in enumerate(self.verified_transactions):
+			inputs: Tuple[Transactions.TransactionInput] = transaction.inputs
+			for i_indx, inp in enumerate(inputs):
+				resp.add(inp.hash)
+		return resp
+
+	def find_UTXOs(self, address: str) -> set():
+		resp = set()
+		for t_indx, transaction in enumerate(self.verified_transactions):
+			outputs: Tuple[Transactions.TransactionOutput] = transaction.outputs
+			for o_indx, output in enumerate(outputs):
+				if output.recipient_address is address:
+					utxo: Transactions.TransactionInput = Transactions.TransactionInput(
+						block_index=self.index,
+						transaction_index=t_indx,
+						output_index=o_indx
+					)
+					resp.add(utxo.hash)
+		return resp
 
 	def to_dict(self):
 		return collections.OrderedDict({
@@ -152,14 +191,15 @@ class BlockChain:
 	def size(self) -> int:
 		return len(self.blocks)
 
-	def check_validity(self) -> bool:
+	def check_validity(self, lite=False) -> bool:
 		"""
 		:return: Whether the Blockchain is valid or not.
 		"""
 		block = self.last_block
 		while block.index >= 1:
 			prev_block = self.blocks[block.index - 1]
-			if not block.check_validity(prev_block):
+			if not block.check_validity(prev_block=prev_block, lite=lite):
+				log.debug(f'[BLOCKCHAIN] Block indx \'{block.index}\' is invalid.')
 				return False
 			block = prev_block
 

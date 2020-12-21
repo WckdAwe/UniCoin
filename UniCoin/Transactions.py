@@ -12,6 +12,9 @@ from Crypto.Signature import pkcs1_15
 import UniCoin.Nodes as Nodes
 import UniCoin.Blockchain as Blockchain
 
+import logging
+log = logging.getLogger('werkzeug')
+
 
 class TransactionInput:
 	def __init__(self, block_index: int, transaction_index: int, output_index: int, balance: int = None):
@@ -47,20 +50,24 @@ class TransactionInput:
 		"""
 		output = self.find_transaction(chain)
 		if output is None:
-			print('Couldn\'t find transaction.')
+			log.debug(f'[TRANSACTION IN] Validation failed (NON-EXISTENT).')
 			return False
 
 		if output.value <= 0:
-			print('Negative transaction value.')
+			log.debug(f'[TRANSACTION IN] Validation failed (NEGATIVE VALUE).')
 			return False
 
 		if output.recipient_address != sender:
-			print('Recipient Address != sender')
+			log.debug(f'[TRANSACTION IN] Validation failed (BAD-SENDER).')
 			return False
 
 		self.__balance = output.value  # Cache the balance
 
 		return True
+
+	@property
+	def hash(self) -> str:
+		return hashlib.md5(self.to_json()).hexdigest()
 
 	def to_dict(self):
 		return collections.OrderedDict({
@@ -204,21 +211,21 @@ class Transaction:
 
 	def check_validity(self, chain) -> bool:
 		if not self.verify_signature():
-			print('Validity failed, signature')
+			log.debug(f'[TRANSACTION] Validation failed (SIGNATURE): \'{self.hash}\'')
 			return False
 
 		for inp in self.inputs:
 			if not inp.check_validity(self.sender, chain):
-				print('Validity failed, input')
+				log.debug(f'[TRANSACTION] Validation failed (INPUTS): \'{self.hash}\'')
 				return False
 
 		for out in self.outputs:
 			if not out.check_validity():
-				print('Validity failed, output')
+				log.debug(f'[TRANSACTION] Validation failed (OUTPUTS): \'{self.hash}\'')
 				return False
 
 		if not self.__calculate_transaction_fee() >= 0:			    # Output is more than available input
-			print('Validity failed, negative transaction fee')
+			log.debug(f'[TRANSACTION] Validation failed (TRANSACTION FEE - NEGATIVE): \'{self.hash}\'')
 			return False
 
 		return True						 							# TODO: Check previous blocks!
@@ -262,24 +269,3 @@ class Transaction:
 			timestamp=timestamp,
 			signature=signature
 		)
-
-
-if __name__ == '__main__':
-	import UniCoin.Transactions as Transactions
-	# miner = Nodes.Miner(Nodes.KeyFactory.create_key())
-
-	# miner.blockchain.dump_blockchain()
-	# t0 = Transactions.Transaction(
-	# 	miner.identity,
-	# 	[
-	# 		Transactions.TransactionInput(0, 0, 0)
-	# 	],
-	# 	[
-	# 		Transactions.TransactionOutput(miner.identity, 20),
-	# 		Transactions.TransactionOutput(miner.identity, 25)
-	# 	]
-	# )
-	# t0.sign_transaction(miner)
-	# miner.add_transaction(t0)
-	# miner.mine()
-	# miner.blockchain.dump_blockchain()

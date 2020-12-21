@@ -21,14 +21,13 @@
   <component name="ChangeListManager">
     <list default="true" id="58f6c826-d9e6-4b5d-a436-3bc718c13bf6" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/UniCoin.py" beforeDir="false" afterPath="$PROJECT_DIR$/UniCoin.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/UniCoin/Blockchain.py" beforeDir="false" afterPath="$PROJECT_DIR$/UniCoin/Blockchain.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/UniCoin/Nodes.py" beforeDir="false" afterPath="$PROJECT_DIR$/UniCoin/Nodes.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/UniCoin/Transactions.py" beforeDir="false" afterPath="$PROJECT_DIR$/UniCoin/Transactions.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/UniCoin/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/UniCoin/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/UniCoin/helpers/menus.py" beforeDir="false" afterPath="$PROJECT_DIR$/UniCoin/helpers/menus.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/UniCoin/web/api.py" beforeDir="false" afterPath="$PROJECT_DIR$/UniCoin/web/api.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/node_list.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/UniCoin_old.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -239,7 +238,8 @@
       <workItem from="1608205730535" duration="5843000" />
       <workItem from="1608292991350" duration="24182000" />
       <workItem from="1608370158337" duration="20023000" />
-      <workItem from="1608461654240" duration="17934000" />
+      <workItem from="1608461654240" duration="22843000" />
+      <workItem from="1608557161209" duration="16296000" />
     </task>
     <servers />
   </component>
@@ -275,46 +275,46 @@
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
     <state width="1369" height="466" key="DebuggerActiveHint/0.0.1920.1040@0.0.1920.1040" timestamp="1608464503188" />
-    <state width="1877" height="277" key="GridCell.Tab.0.bottom" timestamp="1608482864227">
+    <state width="1877" height="285" key="GridCell.Tab.0.bottom" timestamp="1608578474546">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state width="1877" height="277" key="GridCell.Tab.0.bottom/0.0.1920.1040@0.0.1920.1040" timestamp="1608482864227" />
-    <state width="1877" height="277" key="GridCell.Tab.0.center" timestamp="1608482864227">
+    <state width="1877" height="285" key="GridCell.Tab.0.bottom/0.0.1920.1040@0.0.1920.1040" timestamp="1608578474546" />
+    <state width="1877" height="285" key="GridCell.Tab.0.center" timestamp="1608578474546">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state width="1877" height="277" key="GridCell.Tab.0.center/0.0.1920.1040@0.0.1920.1040" timestamp="1608482864227" />
-    <state width="1877" height="277" key="GridCell.Tab.0.left" timestamp="1608482864227">
+    <state width="1877" height="285" key="GridCell.Tab.0.center/0.0.1920.1040@0.0.1920.1040" timestamp="1608578474546" />
+    <state width="1877" height="285" key="GridCell.Tab.0.left" timestamp="1608578474546">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state width="1877" height="277" key="GridCell.Tab.0.left/0.0.1920.1040@0.0.1920.1040" timestamp="1608482864227" />
-    <state width="1877" height="277" key="GridCell.Tab.0.right" timestamp="1608482864227">
+    <state width="1877" height="285" key="GridCell.Tab.0.left/0.0.1920.1040@0.0.1920.1040" timestamp="1608578474546" />
+    <state width="1877" height="285" key="GridCell.Tab.0.right" timestamp="1608578474546">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state width="1877" height="277" key="GridCell.Tab.0.right/0.0.1920.1040@0.0.1920.1040" timestamp="1608482864227" />
-    <state width="1877" height="348" key="GridCell.Tab.1.bottom" timestamp="1608464521242">
+    <state width="1877" height="285" key="GridCell.Tab.0.right/0.0.1920.1040@0.0.1920.1040" timestamp="1608578474546" />
+    <state width="1877" height="348" key="GridCell.Tab.1.bottom" timestamp="1608489083701">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state width="1877" height="348" key="GridCell.Tab.1.bottom/0.0.1920.1040@0.0.1920.1040" timestamp="1608464521242" />
-    <state width="1877" height="348" key="GridCell.Tab.1.center" timestamp="1608464521242">
+    <state width="1877" height="348" key="GridCell.Tab.1.bottom/0.0.1920.1040@0.0.1920.1040" timestamp="1608489083701" />
+    <state width="1877" height="348" key="GridCell.Tab.1.center" timestamp="1608489083701">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state width="1877" height="348" key="GridCell.Tab.1.center/0.0.1920.1040@0.0.1920.1040" timestamp="1608464521242" />
-    <state width="1877" height="348" key="GridCell.Tab.1.left" timestamp="1608464521242">
+    <state width="1877" height="348" key="GridCell.Tab.1.center/0.0.1920.1040@0.0.1920.1040" timestamp="1608489083701" />
+    <state width="1877" height="348" key="GridCell.Tab.1.left" timestamp="1608489083701">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state width="1877" height="348" key="GridCell.Tab.1.left/0.0.1920.1040@0.0.1920.1040" timestamp="1608464521242" />
-    <state width="1877" height="348" key="GridCell.Tab.1.right" timestamp="1608464521242">
+    <state width="1877" height="348" key="GridCell.Tab.1.left/0.0.1920.1040@0.0.1920.1040" timestamp="1608489083701" />
+    <state width="1877" height="348" key="GridCell.Tab.1.right" timestamp="1608489083701">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state width="1877" height="348" key="GridCell.Tab.1.right/0.0.1920.1040@0.0.1920.1040" timestamp="1608464521242" />
+    <state width="1877" height="348" key="GridCell.Tab.1.right/0.0.1920.1040@0.0.1920.1040" timestamp="1608489083701" />
     <state x="461" y="165" key="SettingsEditor" timestamp="1608391619071">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
     <state x="461" y="165" key="SettingsEditor/0.0.1920.1040@0.0.1920.1040" timestamp="1608391619071" />
-    <state x="667" y="119" width="585" height="801" key="find.popup" timestamp="1608482739984">
+    <state x="667" y="119" width="585" height="801" key="find.popup" timestamp="1608572772504">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state x="667" y="119" width="585" height="801" key="find.popup/0.0.1920.1040@0.0.1920.1040" timestamp="1608482739984" />
+    <state x="667" y="119" width="585" height="801" key="find.popup/0.0.1920.1040@0.0.1920.1040" timestamp="1608572772504" />
     <state x="623" y="225" width="672" height="678" key="search.everywhere.popup" timestamp="1606743858143">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
@@ -331,6 +331,6 @@
     <SUITE FILE_PATH="coverage/UniCoin$Client.coverage" NAME="Client Coverage Results" MODIFIED="1606559767876" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/UniCoin$Nodes.coverage" NAME="Nodes Coverage Results" MODIFIED="1606733923457" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/UniCoin" />
     <SUITE FILE_PATH="coverage/UniCoin$Blockchain__1_.coverage" NAME="Blockchain (1) Coverage Results" MODIFIED="1608307586292" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/UniCoin" />
-    <SUITE FILE_PATH="coverage/UniCoin$UniCoin__1_.coverage" NAME="UniCoin (1) Coverage Results" MODIFIED="1608482799148" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/UniCoin$UniCoin__1_.coverage" NAME="UniCoin (1) Coverage Results" MODIFIED="1608569497192" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
