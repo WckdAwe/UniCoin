@@ -4,7 +4,7 @@ import collections
 import time
 import binascii
 
-from typing import List, Tuple
+from typing import Tuple
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import pkcs1_15
@@ -32,36 +32,45 @@ class TransactionInput:
 	def is_coinbase(self) -> bool:
 		return self.block_index == 0 and self.transaction_index == 0 and self.output_index == 0
 
-	def find_transaction(self, chain):
+	def find_transaction(self, blockchain):
 		try:
-			block: Blockchain.Block = chain[self.block_index]
-
-			# TODO: Change this when adding TRANSACTIONS
+			blocks = blockchain.blocks
+			log.error(f'{len(blocks)} || {self.block_index}')
+			block: Blockchain.Block = blocks[self.block_index]
+			log.error(f'{len(block.verified_transactions)} || {self.transaction_index}')
 			transaction = block.verified_transactions[self.transaction_index]
+			log.error(f'{len(transaction.outputs)} || {self.output_index}')
 			return transaction.outputs[self.output_index]
-		except Exception:
+		except Exception as e:
+			log.error(e)
 			return None
 
-	def check_validity(self, sender: str, chain) -> bool:
+	def check_validity(self, sender: str, blockchain, check_utxos=False) -> bool:
 		"""
+		:param check_utxos: --FIND A BETTER WAY THAN THIS-- If you use this program... I am just wrapping things up
+		:param blockchain:
 		:param sender:
-		:param chain:
 		:return:
 		"""
-		output = self.find_transaction(chain)
+		output = self.find_transaction(blockchain=blockchain)
 		if output is None:
-			log.debug(f'[TRANSACTION IN] Validation failed (NON-EXISTENT).')
+			log.debug(f'[TRANSACTION INP - {self.hash}] Validation failed (NON-EXISTENT).')
 			return False
 
 		if output.value <= 0:
-			log.debug(f'[TRANSACTION IN] Validation failed (NEGATIVE VALUE).')
-			return False
-
-		if output.recipient_address != sender:
-			log.debug(f'[TRANSACTION IN] Validation failed (BAD-SENDER).')
+			log.debug(f'[TRANSACTION INP - {self.hash}] Validation failed (NEGATIVE VALUE).')
 			return False
 
 		self.__balance = output.value  # Cache the balance
+
+		if output.recipient_address != sender:
+			log.debug(f'[TRANSACTION INP - {self.hash}] Validation failed (BAD-SENDER).')
+			return False
+
+		# Check if transaction is spent
+		if check_utxos and self not in blockchain.UTXOs:
+			log.debug(f'[TRANSACTION INP - {self.hash}] Validation failed (NOT IN UTXO LIST)')
+			return False
 
 		return True
 
@@ -177,7 +186,7 @@ class Transaction:
 		h = SHA256.new(self.to_json())
 		self.signature = binascii.hexlify(signer.sign(h)).decode('ascii')
 
-	def verify_signature(self) -> bool:
+	def verify_signature(self, coinbase=False) -> bool:
 		"""
 		:return: Whether the signature belongs to the actual sender or not
 		"""
@@ -186,7 +195,10 @@ class Transaction:
 		try:
 			self.signature = None									# Remove signature to verify hash
 
-			der_key = binascii.unhexlify(self.sender)
+			if coinbase:
+				der_key = binascii.unhexlify(self.outputs[0].recipient_address)
+			else:
+				der_key = binascii.unhexlify(self.sender)
 			sig = binascii.unhexlify(signature)
 
 			public_key = RSA.import_key(der_key)
@@ -195,8 +207,9 @@ class Transaction:
 			signer = pkcs1_15.new(public_key)
 			signer.verify(h, sig)									# Verify that the hash and transaction match
 			result = True
-		except (ValueError, TypeError, Exception):
+		except (ValueError, TypeError, Exception) as e:
 			result = False
+			log.error(e)
 		finally:
 			self.signature = signature								# Reset signature
 			return result
@@ -205,30 +218,34 @@ class Transaction:
 		self.__balance_input = sum([inp.balance for inp in self.inputs])
 		return self.__balance_input
 
-	def __calculate_transaction_fee(self) -> int:
-		self.__transaction_fee = self.__calculate_input() - self.balance_output
+	def __calculate_transaction_fee(self, coinbase=False) -> int:
+		self.__transaction_fee = 0 if coinbase else self.__calculate_input() - self.balance_output
 		return self.__transaction_fee
 
-	def check_validity(self, chain) -> bool:
-		if not self.verify_signature():
-			log.debug(f'[TRANSACTION] Validation failed (SIGNATURE): \'{self.hash}\'')
+	def check_validity(self, blockchain, is_coinbase=False, check_utxos=False) -> bool:
+		if not self.verify_signature(is_coinbase):
+			log.debug(f'[TRANSACTION - {self.hash}] Validation failed (SIGNATURE)')
 			return False
 
 		for inp in self.inputs:
-			if not inp.check_validity(self.sender, chain):
-				log.debug(f'[TRANSACTION] Validation failed (INPUTS): \'{self.hash}\'')
+			if not inp.check_validity(
+					sender=self.sender,
+					blockchain=blockchain,
+					check_utxos=check_utxos
+			):
+				log.debug(f'[TRANSACTION - {self.hash}] Validation failed (INPUTS)')
 				return False
 
 		for out in self.outputs:
 			if not out.check_validity():
-				log.debug(f'[TRANSACTION] Validation failed (OUTPUTS): \'{self.hash}\'')
+				log.debug(f'[TRANSACTION - {self.hash}] Validation failed (OUTPUTS)')
 				return False
 
-		if not self.__calculate_transaction_fee() >= 0:			    # Output is more than available input
-			log.debug(f'[TRANSACTION] Validation failed (TRANSACTION FEE - NEGATIVE): \'{self.hash}\'')
+		if not self.__calculate_transaction_fee(coinbase=is_coinbase) >= 0:			    # Output is more than available input
+			log.debug(f'[TRANSACTION - {self.hash}] Validation failed (TRANSACTION FEE - NEGATIVE)')
 			return False
 
-		return True						 							# TODO: Check previous blocks!
+		return True	 # TODO: Check previous blocks!
 
 	@property
 	def hash(self) -> str:

@@ -163,13 +163,13 @@ class PeerNetwork:
 			if not q.empty():
 				transaction: Transactions.Transaction = q.get(timeout=1)
 				t_hash = transaction.hash
-				log.debug(f'[TRANSACTION] Broadcasting Transaction \'{t_hash}\'.')
+				log.debug(f'[TRANSACTION - {t_hash}] Broadcasting Transaction')
 				data = transaction.to_json().decode('utf-8')
 				if data is None:
-					log.debug(f'[TRANSACTION] Broadcasting Transaction \'{t_hash}\' failed. Bad JSON.')
+					log.debug(f'[TRANSACTION - {t_hash}] Broadcasting Transaction failed. Bad JSON')
 				total_sent, total_peers = self.__broadcast_json(f'api/broadcasts/new_transaction', data)
 
-				log.debug(f'[TRANSACTION] \'{t_hash}\' broadcast ended. {total_sent}/{total_peers} peers received the message.')
+				log.debug(f'[TRANSACTION - {t_hash}] Broadcast ended. {total_sent}/{total_peers} peers received the message')
 			time.sleep(1)
 
 	def __handle_blocks(self):
@@ -181,13 +181,13 @@ class PeerNetwork:
 			if not q.empty():
 				block: Blockchain.Block = q.get(timeout=1)
 				b_hash = block.hash
-				log.debug(f'[BLOCK] Broadcasting Block \'{b_hash}\'.')
+				log.debug(f'[BLOCK - {b_hash}] Broadcasting Block')
 				data = block.to_json().decode('utf-8')
 				if data is None:
-					log.debug(f'[BLOCK] Broadcasting Block \'{b_hash}\' failed. Bad JSON.')
+					log.debug(f'[BLOCK - {b_hash}] Broadcasting Block failed. Bad JSON')
 				total_sent, total_peers = self.__broadcast_json(f'api/broadcasts/new_block', data)
 
-				log.debug(f'[BLOCK] \'{b_hash}\' broadcast ended. {total_sent}/{total_peers} peers received the message.')
+				log.debug(f'[BLOCK - {b_hash}] Broadcast ended. {total_sent}/{total_peers} peers received the message')
 			time.sleep(1)
 
 	def broadcast_transaction(self, transaction: Transactions.Transaction):
@@ -206,9 +206,9 @@ class PeerNetwork:
 		for peer in self.peers:
 			length = self.check_chain_length(peer)
 			if length > tmp_length:
-				chain = self.steal_chain(peer)
-				if chain.check_validity():
-					tmp_chain = chain
+				blockchain = self.steal_blockchain(peer)
+				if blockchain and blockchain.check_validity(lite=False):
+					tmp_chain = blockchain
 					tmp_length = tmp_chain.size
 					log.debug(f'[PEER] Found bigger valid chain from \'{peer}\'.')
 
@@ -220,19 +220,19 @@ class PeerNetwork:
 		:param peer:
 		:return: Length of peer's blockchain.
 		"""
-		response = requests.get(f'http://{peer}/api/blockchain/length')
+		try:
+			response = requests.get(f'http://{peer}/api/blockchain/length')
 
-		if response.status_code == 200:
-			try:
+			if response.status_code == 200:
 				json_data = json.loads(response.text)
 				return json_data["length"]
-			except Exception:
-				log.debug(f'[PEER] Failed fetching blockchain length from peer {peer}')
-				return 0
+		except Exception:
+			log.debug(f'[PEER] Failed fetching blockchain length from peer {peer}')
+			return 0
 		return 0
 
 	@staticmethod
-	def steal_chain(peer: Peer) -> Blockchain.BlockChain:
+	def steal_blockchain(peer: Peer) -> Blockchain.BlockChain:
 		"""
 		Grab the chain, validate it and if everything is good, swap it with ours.
 		:param peer:
@@ -248,9 +248,6 @@ class PeerNetwork:
 				return None
 		return None
 
-	def blacklist_peer(self, address: str):  # TODO: Is this possible for a blockchain network??
-		pass
-
 	@property
 	def peers(self):
 		return self._peers
@@ -260,11 +257,15 @@ class Node:
 	TYPE_CLIENT = 0
 	TYPE_MINER = 1
 
-	def __init__(self, private_key: RsaKey):
-		self.network: PeerNetwork = PeerNetwork()
+	def __init__(self, private_key: RsaKey, my_peer=None):
+		self.network: PeerNetwork = PeerNetwork(
+			my_peer=my_peer
+		)
 		self.blockchain = Blockchain.BlockChain()
 		self.private_key: RsaKey = private_key
 		self.public_key: RsaKey = self.private_key.publickey()
+		self.processed_hashes: List[str] = list()  # Keep track of already processed
+												   # blocks and transactions
 
 	@property
 	def identity(self) -> str:
@@ -279,13 +280,10 @@ class Node:
 
 
 class Client(Node):
-	def __init__(self, private_key: RsaKey):
-		super().__init__(private_key)
+	def __init__(self, private_key: RsaKey, my_peer=None):
+		super().__init__(private_key, my_peer=my_peer)
 		self.signer: PKCS115_SigScheme = pkcs1_15.new(self.private_key)
 		self.my_UTXOs: Set[Transactions.TransactionInput] = set()  # List of unspent transactions
-
-		# List of unspent transactions + confirm
-		self.my_UTXOs: Dict[Transactions.TransactionInput, int] = dict()
 
 	@property
 	def balance(self):
@@ -339,15 +337,19 @@ class Client(Node):
 		if isinstance(self, Miner):
 			self.add_transaction(transaction)
 
+		# Set UTXO as temporary 'Spent'
+		for utxo in selected_utxo:
+			self.my_UTXOs.remove(utxo)
+
 		self.network.broadcast_transaction(transaction)
 		return True
 
 
 class Miner(Client):
-	def __init__(self, private_key: RsaKey):
-		super().__init__(private_key)
+	def __init__(self, private_key: RsaKey, my_peer=None):
+		super().__init__(private_key, my_peer=my_peer)
 		self.verified_transactions: Dict[str, Transactions.Transaction] = dict()  # Store Verified transactions to input in block
-		self.UTXOs: set = set()  # List of Unspent Transactions Available
+		# self.UTXOs: Set[Transactions.TransactionInput] = set()  # List of Unspent Transactions Available
 
 		# Unconventional, but i guess it's fine just for the demonstration
 		# Miner shouldn't create Genesis block?
@@ -388,25 +390,32 @@ class Miner(Client):
 			)
 		)
 		coinbase.sign_transaction(self)
-		verified_transactions.insert(0, coinbase)
-
+		block.verified_transactions.insert(0, coinbase)
 		self.network.broadcast_block(block)	 # Broadcast block to available nodes
 
 		self.blockchain.blocks.append(block)
 
 		# -- Add Coinbase as new UTXO for Miner --
-		utxo = Transactions.TransactionInput(
-				block.index, 0, 0, coinbase_total
-			)
-		utxo.check_validity(self.identity, self.blockchain.blocks)
-		self.my_UTXOs.add(
-			utxo
-		)
-		# ----------------------------------------
+		# utxo = Transactions.TransactionInput(
+		# 		block.index, 0, 0, coinbase_total
+		# 	)
 
-		# -- Add all Outputs as new UTXOS --
+		# utxo.check_validity(self.identity, self.blockchain.blocks)
+		# self.my_UTXOs.add(utxo)  # Add UTXO
 
 		# ----------------------------------
+		# -- Add all Outputs as new UTXOS --
+		# ----------------------------------
+		self.blockchain.UTXOs.difference_update(block.extract_STXOs())
+		self.blockchain.UTXOs = set(self.blockchain.UTXOs.union(block.extract_UTXOs()))
+
+		# -- UPDATE MY UTXO SET --
+		my_utxos = set(block.find_UTXOs(self.identity))
+		for my_utxo in my_utxos:  # This will fail, but will cache the value
+			my_utxo.check_validity(sender=None, blockchain=self.blockchain)
+		self.my_UTXOs = self.my_UTXOs.union(my_utxos)
+		# ---------------------
+
 		return block
 
 	@property
@@ -448,7 +457,7 @@ class Miner(Client):
 		if t_hash in self.verified_transactions.keys():
 			return False
 
-		if not transaction.check_validity(self.blockchain.blocks):
+		if not transaction.check_validity(blockchain=self.blockchain, check_utxos=True):
 			return False
 
 		self.verified_transactions[t_hash] = transaction

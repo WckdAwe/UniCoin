@@ -16,13 +16,11 @@ def run(port=5000):
 
 	# -- DISABLE LOGGER --
 	# log.setLevel(logging.ERROR)
+	log.setLevel(logging.DEBUG)
 	# --------------------
 
 	key = menus.menu_select_key()
-	my_node = menus.menu_select_client_type(key)
-	my_node.network = Nodes.PeerNetwork(
-		my_peer=Nodes.Peer("127.0.0.1", port)
-	)
+	my_node = menus.menu_select_client_type(key, my_peer=Nodes.Peer("127.0.0.1", port))
 
 	# -- START WEB SERVER --
 	print('Good to go... Starting web server...')

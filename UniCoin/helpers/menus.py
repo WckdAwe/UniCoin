@@ -2,15 +2,12 @@ from Crypto.PublicKey.RSA import RsaKey
 from prettytable import PrettyTable
 
 import UniCoin.Nodes as Nodes
-import UniCoin.Transactions as Transactions
 
 import logging
 log = logging.getLogger('werkzeug')
 
 
-def menu_select_client_type(private_key):
-	import UniCoin.Nodes as Nodes
-
+def menu_select_client_type(private_key, my_peer=None):
 	print('-'*23, ' [UNICOIN - Select Client Type] ', '-'*23)
 	print('1. Client')
 	print('2. Miner')
@@ -26,14 +23,12 @@ def menu_select_client_type(private_key):
 	if inp == 0:
 		exit(0)
 	elif inp == 1:
-		return Nodes.Client(private_key)
+		return Nodes.Client(private_key, my_peer=my_peer)
 	else:
-		return Nodes.Miner(private_key)
+		return Nodes.Miner(private_key, my_peer=my_peer)
 
 
 def menu_generate_key() -> RsaKey:
-	import UniCoin.Nodes as Nodes
-
 	print('-'*23, ' [UNICOIN - Friendly name] ', '-'*23)
 	print('Select a friendly name for your key.')
 	print('Just try not to override any previous one and lose fortunes ^_^.')
@@ -44,7 +39,6 @@ def menu_generate_key() -> RsaKey:
 
 
 def menu_select_key() -> RsaKey:
-	import UniCoin.Nodes as Nodes
 	import UniCoin.helpers as helpers
 	import os
 
@@ -90,11 +84,14 @@ def menu_main(my_node: Nodes.Client):
 	print('0. Exit')
 
 	while True:
-		inp = int(input('Selection: '))
-		if inp not in range(0, 6 if isinstance(my_node, Nodes.Miner) else 5):
-			print('Incorrect input. Try again.')
+		try:
+			inp = int(input('Selection: '))
+			if inp not in range(0, 6 if isinstance(my_node, Nodes.Miner) else 5):
+				print('Incorrect input. Try again.')
+				continue
+			break
+		except Exception:
 			continue
-		break
 
 	if inp == 0:
 		exit(0)
@@ -102,7 +99,7 @@ def menu_main(my_node: Nodes.Client):
 		t = PrettyTable(['Transaction', 'Balance'])
 		total = 0
 		for utxo in my_node.my_UTXOs:
-			t.add_row([hash(utxo), utxo.balance])
+			t.add_row([utxo.hash, utxo.balance])
 			if utxo.balance > 0:
 				total += utxo.balance
 		t.add_row(['Total: ', total])
@@ -138,11 +135,8 @@ def menu_main(my_node: Nodes.Client):
 					print('Failed to create transaction.')
 				else:
 					print('Unicoins sent!')
-				# transaction.check_validity(my_node.blockchain.blocks)
-				# my_node.verified_transactions.append(transaction)
 			else:
 				print('Action cancelled!')
-		# my_node.send_coins()
 	elif inp == 3:
 		print(my_node.blockchain)
 	elif inp == 4:

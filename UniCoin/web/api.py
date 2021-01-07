@@ -27,32 +27,91 @@ def broadcasts_new_block():
 	data = json.loads(json_data)
 	block = Blockchain.Block.from_json(data)
 
-	log.debug(f'[BLOCK] Received:  \'{block.hash}\'')
+	if block.hash in my_node.processed_hashes:
+		return json.dumps({
+			'message': 'Already processed',
+		})
+	else:
+		my_node.processed_hashes.append(block.hash)
+
+	log.debug(f'[BLOCK - {block.hash}] Received')
 	if isinstance(my_node, Nodes.Miner):
-		if block.check_validity(my_node.blockchain.last_block):
-			log.debug(f'[BLOCK] Validated: \'{block.hash}\'')
+		if block.check_validity(
+				prev_block=my_node.blockchain.last_block,
+				lite=False,
+				blockchain=my_node.blockchain
+		):
+			log.debug(f'[BLOCK - {block.hash}] Validated')
 			my_node.blockchain.blocks.append(block)
 
 			# -- UPDATE UTXO SET --
-			my_node.UTXOs.difference_update(block.extract_STXOs())
-			my_node.UTXOs = my_node.UTXOs.union(block.extract_UTXOs())
+			my_node.blockchain.UTXOs.difference_update(block.extract_STXOs())
+			my_node.blockchain.UTXOs = set(my_node.blockchain.UTXOs.union(block.extract_UTXOs()))
 			# ---------------------
 
+			# -- UPDATE MY UTXO SET --
+			my_utxos = set(block.find_UTXOs(my_node.identity))
+			my_node.my_UTXOs = my_node.my_UTXOs.union(my_utxos)
+			my_node.my_UTXOs.intersection_update(my_node.blockchain.UTXOs)
+			for my_utxo in my_node.my_UTXOs:  # This will fail, but will cache the value
+				my_utxo.check_validity(sender=None, blockchain=my_node.blockchain)
+			# ---------------------
+
+			# -- REMOVE (NOW) INVALID TRANSACTIONS --
+			for trans in block.verified_transactions:
+				my_node.verified_transactions.pop(trans.hash, None)
+			# ---------------------------------------
 			my_node.network.broadcast_block(block)
 		else:
 			if block.index > my_node.blockchain.last_block.index + 1:
-				log.debug(f'[BLOCK] Rejected (AHEAD): \'{block.hash}\'')
+				log.debug(f'[BLOCK - {block.hash}] Rejected (AHEAD)')
 				chain = my_node.network.check_peer_chains(my_node.blockchain.size)
 				if chain:
 					log.debug('[BLOCKCHAIN] Fetched bigger valid chain.')
-					# TODO: Must update UTXOs!
+					# -- UPDATE MY UTXO SET --
+					diff = Blockchain.BlockChain.find_block_diff(
+						old_blocks=my_node.blockchain.blocks,
+						new_blocks=chain.blocks
+					)
+
+					# 2 Different for loops just in case a UTXO has just changed it's block
+					# position.
+
+					# Remove OLD UTXOs
+					for indx in diff:
+						tmp_block: Blockchain.Block = my_node.blockchain.blocks[indx]
+						old_utxos = tmp_block.find_UTXOs(my_node.identity)
+						my_node.my_UTXOs.difference_update(old_utxos)
+
+						# -- COLLECT VALID TRANSACTIONS from our rejected block --
+						for t_indx in range(1, len(tmp_block.verified_transactions)):
+							trans = tmp_block.verified_transactions[t_indx]
+							my_node.verified_transactions[trans.hash] = trans
+
+					# Add new UTXOs
+					for indx in range(diff[0], len(chain.blocks)):
+						tmp_block: Blockchain.Block = chain.blocks[indx]
+						new_utxos = tmp_block.find_UTXOs(my_node.identity)
+						for n in new_utxos:
+							log.error(f'Added UTXO: {n.hash}')
+						my_node.my_UTXOs = my_node.my_UTXOs.union(new_utxos)
+
+						# -- REMOVE TRANSACTIONS that are already in the block --
+						for t_indx in range(1, len(tmp_block.verified_transactions)):
+							trans = tmp_block.verified_transactions[t_indx]
+							my_node.verified_transactions.pop(trans.hash, None)
+					# ---------------------
+
 					my_node.blockchain = chain
+
+					my_node.my_UTXOs.intersection_update(my_node.blockchain.UTXOs)
+					for my_utxo in my_node.my_UTXOs:  # This will fail, but will cache the value
+						my_utxo.check_validity(sender=None, blockchain=my_node.blockchain)
 			else:
-				log.debug(f'[BLOCK] Rejected (INVALID): \'{block.hash}\'')
+				log.debug(f'[BLOCK - {block.hash}] Rejected (INVALID)')
 	elif type(my_node) is Nodes.Client:
-		log.debug(f'[BLOCK] ECHOING: \'{block.hash}\'')
-		# TODO: Check if is_valid (lite edition)?
-		if block.check_validity(my_node.blockchain.last_block, lite=True):
+		log.debug(f'[BLOCK - {block.hash}] ECHOING')
+		if block.check_validity(my_node.blockchain, lite=True):
 			my_node.network.broadcast_block(block)  # Echo Transaction
 
 	return json.dumps({
@@ -72,15 +131,23 @@ def broadcasts_new_transaction():
 		}), 400
 	data = json.loads(json_data)
 	transaction = Transactions.Transaction.from_json(data)
+
+	if transaction.hash in my_node.processed_hashes:
+		return json.dumps({
+			'message': 'Already processed',
+		})
+	else:
+		my_node.processed_hashes.append(transaction.hash)
+
 	if isinstance(my_node, Nodes.Miner):
 		success = my_node.add_transaction(transaction)
 		if success:
-			log.debug(f'[TRANSACTION] Validated: \'{transaction.hash}\'')
+			log.debug(f'[TRANSACTION - {transaction.hash}] Validated')
 			my_node.network.broadcast_transaction(transaction)
 		else:
-			log.debug(f'[TRANSACTION] Rejected (INVALID or EXISTS): \'{transaction.hash}\'')
+			log.debug(f'[TRANSACTION - {transaction.hash}] Rejected (INVALID or EXISTS)')
 	elif isinstance(my_node, Nodes.Client):
-		log.debug(f'[TRANSACTION] ECHOING: \'{transaction.hash}\'')
+		log.debug(f'[TRANSACTION - {transaction.hash}] ECHOING')
 		my_node.network.broadcast_transaction(transaction)
 
 	return json.dumps({
@@ -106,7 +173,8 @@ def get_blockchain_chain():
 	"""
 	return json.dumps({
 		'length': my_node.blockchain.size,
-		'chain': list(map(lambda o: o.to_dict(), my_node.blockchain.blocks))
+		'chain': list(map(lambda o: o.to_dict(), my_node.blockchain.blocks)),
+		'utxos': list(map(lambda o: o.to_dict(), my_node.blockchain.UTXOs)),
 	})
 
 
@@ -192,7 +260,7 @@ def receive_registration_request():
 				# TODO: This should be extracted to somewhere else, otherwise the node could be attacked.
 				if my_node.network.check_chain_length(peer) > my_node.blockchain.size:
 					log.debug(f'[PEER] \'{peer}\' has longer blockchain length.')
-					chain = my_node.network.steal_chain(peer)
+					chain = my_node.network.steal_blockchain(peer)
 					if chain.check_validity():
 						my_node.blockchain = chain
 						log.debug(f'[PEER] Now using the blockchain of peer \'{peer}\'')
